@@ -1,0 +1,744 @@
+<title>Josué y los muros de Jericó</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Nunito:wght@600;800&family=Cinzel:wght@600;800&display=swap" rel="stylesheet">
+<style>
+@property --sky1{syntax:'<color>';inherits:true;initial-value:#8fd8ff}
+@property --sky2{syntax:'<color>';inherits:true;initial-value:#e9f8ff}
+@property --grade{syntax:'<color>';inherits:true;initial-value:rgba(255,200,120,.08)}
+
+/* Layout: a centered 16:9 cinematic stage, a cream caption strip under it, and a slim control bar with one segment per scene. */
+:root{
+  --ink:#1b1f4b;
+  --ink-2:#262b66;
+  --paper:#fff6e0;
+  --sun:#ffc43d;
+  --rose:#ff6b6b;
+  --leaf:#4cb87a;
+  --display:'Baloo 2','Trebuchet MS',system-ui,sans-serif;
+  --body:'Nunito','Segoe UI',system-ui,sans-serif;
+  --lap5:4.5s;
+  --lap6:2.8s;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--ink);color:var(--paper);font-family:var(--body);margin:0;padding-inline:16px;padding-block:24px 48px;font-size:16px}
+.wrap{max-width:960px;margin-inline:auto;display:flex;flex-direction:column;gap:18px}
+header{display:flex;flex-direction:column;gap:2px;min-width:0}
+.eyebrow{margin:0;font-weight:800;font-size:.8rem;letter-spacing:.14em;text-transform:uppercase;color:var(--sun)}
+h1{margin:0;font-family:var(--display);font-weight:800;font-size:clamp(1.9rem,5vw,2.9rem);line-height:1.05;text-wrap:balance}
+.player{background:var(--ink-2);border-radius:24px;overflow:hidden;box-shadow:0 18px 50px rgba(0,0,0,.35)}
+.screen{position:relative;line-height:0;aspect-ratio:2.35/1;overflow:hidden;background:#000}
+#stage{position:absolute;left:0;top:50%;transform:translateY(-50%);width:100%;height:auto;display:block;aspect-ratio:16/9;--sky1:#8fd8ff;--sky2:#e9f8ff;--grade:rgba(255,200,120,.08);transition:--sky1 1.6s,--sky2 1.6s,--grade 1.6s;user-select:none}
+.caption{background:#07070c;color:#fff;padding:14px 22px;min-height:calc(1.4em*2 + 28px);display:flex;align-items:center;justify-content:center;text-align:center}
+.caption p{margin:0;font-weight:800;font-size:clamp(1.05rem,1.2rem + .6vw,1.55rem);line-height:1.4;text-wrap:pretty}
+.caption p.in{animation:capIn .5s ease-out both}
+.controls{display:flex;align-items:center;gap:14px;padding:12px 16px}
+#play{flex:none;width:46px;height:46px;border-radius:50%;border:0;background:var(--sun);color:var(--ink);display:grid;place-items:center;cursor:pointer}
+#play svg{width:22px;height:22px;fill:currentColor}
+#play:hover{filter:brightness(1.08)}
+.segs{flex:1;min-width:0;display:flex;gap:4px}
+.segs button{flex:1;min-width:0;height:30px;padding:11px 0;border:0;background:none;cursor:pointer}
+.segs i{display:block;height:8px;border-radius:4px;background:rgba(255,255,255,.2);overflow:hidden}
+.segs i::after{content:'';display:block;height:100%;background:var(--sun);transform-origin:left;transform:scaleX(var(--p,0))}
+.segs button:hover i{background:rgba(255,255,255,.32)}
+#time{flex:none;font-variant-numeric:tabular-nums;font-weight:800;font-size:.9rem;opacity:.85}
+button:focus-visible{outline:3px solid #fff;outline-offset:2px;border-radius:8px}
+.hint{margin:0;font-size:.9rem;opacity:.75;text-wrap:pretty}
+#endcard{position:absolute;inset:0;display:grid;place-items:center;background:rgba(27,31,75,.5)}
+#endcard[hidden]{display:none}
+#replay{font-family:var(--display);font-weight:800;font-size:clamp(1.2rem,3vw,1.9rem);background:var(--sun);color:var(--ink);border:0;border-radius:999px;padding:.55em 1.3em;cursor:pointer;line-height:1.2}
+#replay:hover{filter:brightness(1.08)}
+@media (max-width:520px){#time{display:none}.controls{gap:10px;padding-inline:12px}.caption{padding:14px 16px}}
+
+/* render mode (used to capture the MP4): stage fills the frame, captions sit on top of the picture */
+html.render body{padding:0;overflow:hidden}
+html.render .wrap{max-width:none;gap:0}
+html.render header,html.render .hint,html.render .controls,html.render #endcard{display:none}
+html.render body{background:#000}
+html.render .wrap{padding-top:109px}
+html.render .player{border-radius:0;box-shadow:none;position:relative;background:#000}
+html.render .caption{height:110px;min-height:0;padding:0 60px}
+html.render .caption p{font-size:33px;font-weight:700}
+
+/* ---- stage scenery ---- */
+.sg{display:none}
+.sg.on,.sg.fading{display:inline}
+.sg.on{animation:fadein .6s both}
+.sg.fading{animation:fadeout .6s both}
+[data-scene="10"] .sg.fadeout.on{animation:fadeout .9s both}
+#stage.paused *{animation-play-state:paused!important}
+svg text{font-family:var(--display);font-weight:800}
+
+#sun{transform:translate(650px,90px);transition:transform 2.4s ease}
+[data-scene="6"] #sun{transform:translate(650px,122px)}
+#sun .rays{animation:sunspin 40s linear infinite}
+.cloud{animation:drift 80s linear infinite}
+
+[data-scene="0"]{--sky1:#8fd8ff;--sky2:#e9f8ff}
+[data-scene="2"]{--sky1:#ffd98a;--sky2:#fff2cf}
+[data-scene="3"]{--sky1:#9fc3dc;--sky2:#e3eef4}
+[data-scene="4"]{--sky1:#b9b4e6;--sky2:#f1ecff}
+[data-scene="6"]{--sky1:#ff9f7a;--sky2:#ffe2a8}
+[data-scene="7"]{--sky1:#ffb347;--sky2:#ffe9a0}
+[data-scene="8"]{--sky1:#c9b79a;--sky2:#efe2cc}
+[data-scene="10"]{--sky1:#8fd8ff;--sky2:#fff3c9}
+
+#cam{transform-origin:0 0;transition:transform 2.3s cubic-bezier(.45,0,.2,1)}
+[data-scene="9"] #cam{transform:translate(400px,277px) scale(3) translate(-360px,-156px)}
+[data-scene="7"][data-beat="2"] #shake{animation:shake .12s linear infinite}
+[data-scene="8"] #shake{animation:shake2 .1s linear 16}
+
+.bob{animation:bob .42s ease-in-out infinite}
+.bob8{animation:bob .42s ease-in-out 8}
+.hop{animation:hop .6s ease-in-out infinite}
+.breath{animation:breath 3.6s ease-in-out infinite}
+.eyes{transform-box:fill-box;transform-origin:center;animation:blink 4.2s infinite}
+.note{animation:noteUp 1.6s ease-out infinite}
+.palmtop{transform-origin:0 -100px;animation:sway 4s ease-in-out infinite}
+.march5{animation:march var(--lap5) linear infinite}
+.march6{animation:march var(--lap6) linear infinite}
+.wallrise{animation:rise 1.5s cubic-bezier(.2,.8,.2,1) both}
+[data-scene="8"] .blk,[data-scene="9"] .blk,[data-scene="10"] .blk{animation:crumble var(--du) cubic-bezier(.55,0,.9,.55) var(--dl) both}
+.blk{transform-box:fill-box;transform-origin:center}
+#stage.settled .blk{animation-duration:.01s!important;animation-delay:0s!important}
+.peek{animation:peek 1.8s ease-in-out infinite}
+[data-scene="8"] .peek,[data-scene="9"] .peek,[data-scene="10"] .peek{display:none}
+.ring{transform-box:fill-box;transform-origin:center;animation:ring 1.3s ease-out infinite}
+.puff{transform-box:fill-box;transform-origin:center;animation:dust 3.4s ease-out both}
+.popb{transform-box:fill-box;transform-origin:center bottom;animation:pop .6s cubic-bezier(.3,1.6,.5,1) both}
+.popc{transform-box:fill-box;transform-origin:center;animation:pop .6s cubic-bezier(.3,1.6,.5,1) both}
+.twinkle{transform-box:fill-box;transform-origin:center;animation:twinkle 1.4s ease-in-out infinite}
+.beam{animation:pulse 2.6s ease-in-out infinite}
+.walkin{animation:walkin 3.2s ease-out both}
+.floaty{animation:floaty 3s ease-in infinite}
+.rb{stroke-dasharray:1;stroke-dashoffset:1;animation:draw 1.2s ease-out forwards}
+
+.m2a{display:inline}.m2b{display:none}
+[data-scene="2"][data-beat="1"] .m2a{display:none}
+[data-scene="2"][data-beat="1"] .m2b{display:inline}
+.ban,.burst{display:none}
+[data-scene="2"][data-beat="1"] .ban{display:inline}
+[data-scene="7"][data-beat="1"] .burst,[data-scene="7"][data-beat="2"] .burst{display:inline}
+.crash{animation:crashA 3s both}
+
+
+[data-scene="0"]{--grade:rgba(255,200,120,.08)}
+[data-scene="1"]{--grade:rgba(255,205,140,.07)}
+[data-scene="2"]{--grade:rgba(255,205,110,.15)}
+[data-scene="3"]{--grade:rgba(60,85,130,.24)}
+[data-scene="4"]{--grade:rgba(120,90,185,.18)}
+[data-scene="5"]{--grade:rgba(255,220,160,.07)}
+[data-scene="6"]{--grade:rgba(255,130,70,.24)}
+[data-scene="7"]{--grade:rgba(255,165,50,.17)}
+[data-scene="8"]{--grade:rgba(125,90,55,.3)}
+[data-scene="9"]{--grade:rgba(255,200,130,.16)}
+[data-scene="10"]{--grade:rgba(255,185,95,.16)}
+svg text.cz{font-family:'Cinzel','Trajan Pro','Times New Roman',serif;font-weight:800;letter-spacing:.06em}
+.rays2{opacity:.55;animation:raysway 14s ease-in-out infinite alternate}
+.mote{animation:mote 14s linear infinite}
+.flashr{opacity:0}
+[data-scene="8"] .flashr{animation:flash 1.6s ease-out both}
+#dolly{transform-origin:400px 260px}
+[data-scene="0"] #dolly{transform-origin:590px 300px;animation:dz0 8s ease-in-out both}
+[data-scene="1"] #dolly{transform-origin:400px 300px;animation:dz1 16s ease-in-out both}
+[data-scene="2"] #dolly{transform-origin:400px 230px;animation:dz2 16s ease-in both}
+[data-scene="3"] #dolly{transform-origin:400px 260px;animation:dz3 16s ease-out both}
+[data-scene="4"] #dolly{transform-origin:150px 250px;animation:dz4 16s linear both}
+[data-scene="5"] #dolly{transform-origin:400px 300px;animation:dz5 27s linear both}
+[data-scene="6"] #dolly{transform-origin:400px 300px;animation:dz6 20s ease-in both}
+[data-scene="7"] #dolly{transform-origin:400px 300px;animation:dz7 14s ease-in both}
+[data-scene="8"] #dolly{transform-origin:400px 300px;animation:dz8 12s ease-out both}
+[data-scene="10"] #dolly{transform-origin:400px 320px;animation:dz10 16s ease-out both}
+@keyframes dz0{from{transform:scale(1.02)}to{transform:scale(1.14)}}
+@keyframes dz1{from{transform:scale(1.12) translateX(34px)}to{transform:scale(1.12) translateX(-34px)}}
+@keyframes dz2{from{transform:scale(1)}to{transform:scale(1.28)}}
+@keyframes dz3{from{transform:scale(1.28)}to{transform:scale(1)}}
+@keyframes dz4{from{transform:scale(1)}to{transform:scale(1.15)}}
+@keyframes dz5{from{transform:scale(1.15) translateX(40px)}to{transform:scale(1.15) translateX(-40px)}}
+@keyframes dz6{from{transform:scale(1.15)}to{transform:scale(1.3)}}
+@keyframes dz7{from{transform:scale(1)}to{transform:scale(1.12)}}
+@keyframes dz8{from{transform:scale(1.12)}to{transform:scale(1)}}
+@keyframes dz10{from{transform:scale(1.25)}to{transform:scale(1)}}
+@keyframes raysway{from{transform:rotate(-4deg)}to{transform:rotate(4deg)}}
+@keyframes mote{0%{transform:translate(0,0);opacity:0}15%{opacity:.85}100%{transform:translate(var(--mx),-110px);opacity:0}}
+@keyframes flash{0%{opacity:.95}100%{opacity:0}}
+@keyframes fadeLoc{0%{opacity:0;transform:translateX(-24px)}12%{opacity:1;transform:none}80%{opacity:1}100%{opacity:0}}
+@keyframes capIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+@keyframes fadeout{from{opacity:1}to{opacity:0}}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@keyframes hop{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
+@keyframes breath{0%,100%{transform:scale(1,1)}50%{transform:scale(1.006,1.012)}}
+@keyframes waveU{0%,100%{transform:rotate(-140deg)}50%{transform:rotate(-158deg)}}
+@keyframes waveF{0%,100%{transform:rotate(-14deg)}50%{transform:rotate(-52deg)}}
+@keyframes cheerLU{0%,100%{transform:rotate(146deg)}50%{transform:rotate(164deg)}}
+@keyframes cheerLF{0%,100%{transform:rotate(10deg)}50%{transform:rotate(32deg)}}
+@keyframes cheerRU{0%,100%{transform:rotate(-146deg)}50%{transform:rotate(-164deg)}}
+@keyframes cheerRF{0%,100%{transform:rotate(-10deg)}50%{transform:rotate(-32deg)}}
+@keyframes swingA{0%,100%{transform:rotate(16deg)}50%{transform:rotate(-16deg)}}
+@keyframes swingB{0%,100%{transform:rotate(-16deg)}50%{transform:rotate(16deg)}}
+@keyframes step{0%{transform:translate(5px,0)}25%{transform:translate(0,-3px)}50%{transform:translate(-5px,0)}100%{transform:translate(5px,0)}}
+@keyframes blink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}
+@keyframes drift{from{transform:translateX(-220px)}to{transform:translateX(1000px)}}
+@keyframes sunspin{to{transform:rotate(360deg)}}
+@keyframes sway{0%,100%{transform:rotate(-2.5deg)}50%{transform:rotate(2.5deg)}}
+@keyframes pop{0%{transform:scale(0)}70%{transform:scale(1.15)}100%{transform:scale(1)}}
+@keyframes drop{0%{transform:translateY(-160px);opacity:0}60%{transform:translateY(12px);opacity:1}100%{transform:translateY(0);opacity:1}}
+@keyframes march{from{transform:translateX(-40px)}to{transform:translateX(1320px)}}
+@keyframes rise{from{transform:translateY(170px)}to{transform:translateY(0)}}
+@keyframes crumble{0%{transform:translate(0,0) rotate(0)}100%{transform:translate(var(--dx),var(--dy)) rotate(var(--rot))}}
+@keyframes shake{0%,100%{transform:translate(0,0)}25%{transform:translate(-3px,1px)}50%{transform:translate(3px,-1px)}75%{transform:translate(-2px,-1px)}}
+@keyframes shake2{0%,100%{transform:translate(0,0)}25%{transform:translate(-4px,2px)}50%{transform:translate(4px,-2px)}75%{transform:translate(-3px,-1px)}}
+@keyframes ring{0%{transform:scale(.3);opacity:.95}100%{transform:scale(3.4);opacity:0}}
+@keyframes noteUp{0%{transform:translate(0,0);opacity:0}15%{opacity:1}100%{transform:translate(10px,-42px);opacity:0}}
+@keyframes dust{0%{transform:scale(.2);opacity:0}20%{opacity:.95}100%{transform:scale(2.8) translateY(-14px);opacity:0}}
+@keyframes twinkle{0%,100%{transform:scale(.6);opacity:.4}50%{transform:scale(1.25);opacity:1}}
+@keyframes pulse{0%,100%{opacity:.45}50%{opacity:.9}}
+@keyframes peek{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes walkin{from{transform:translateX(-360px)}to{transform:translateX(0)}}
+@keyframes floaty{0%{transform:translateY(0);opacity:0}15%{opacity:1}100%{transform:translateY(-70px);opacity:0}}
+@keyframes draw{to{stroke-dashoffset:0}}
+@keyframes crashA{0%{transform:scale(0);opacity:1}12%{transform:scale(1.25)}20%{transform:scale(1)}80%{opacity:1}100%{transform:scale(1);opacity:0}}
+@keyframes spark{0%{transform:translate(0,0) scale(1)}50%{transform:translate(190px,-80px) scale(1.5)}100%{transform:translate(379px,27px) scale(1)}}
+@keyframes sparkOut{0%,100%{opacity:1}}
+@media (prefers-reduced-motion:reduce){#shake,.cloud,#sun .rays{animation:none!important}}
+</style>
+
+<main class="wrap">
+  <header>
+    <p class="eyebrow">Historia bíblica para niños · Josué 1 y 6</p>
+    <h1>Josué y los muros de Jericó</h1>
+  </header>
+
+  <section class="player" aria-label="Historia animada">
+    <div class="screen">
+      <svg id="stage" viewBox="0 0 800 450" role="img" aria-label="Dibujos animados de Josué y los muros de Jericó" data-scene="0" data-beat="0">
+        <defs>
+          <linearGradient id="skyG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--sky1)"/><stop offset="1" style="stop-color:var(--sky2)"/></linearGradient>
+          <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe27a"/><stop offset="1" stop-color="#d79a22"/></linearGradient>
+          <linearGradient id="beamG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff7c2" stop-opacity=".95"/><stop offset="1" stop-color="#fff7c2" stop-opacity="0"/></linearGradient>
+          <radialGradient id="glowG"><stop offset="0" stop-color="#ffe27a" stop-opacity=".95"/><stop offset="1" stop-color="#ffe27a" stop-opacity="0"/></radialGradient>
+          <radialGradient id="faceShade" cx=".38" cy=".32" r=".8"><stop offset="0" stop-color="#fff" stop-opacity=".24"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#3a1500" stop-opacity=".34"/></radialGradient>
+          <linearGradient id="robeShade" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity=".18"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".34"/></linearGradient>
+          <linearGradient id="hemShade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".28"/></linearGradient>
+          <linearGradient id="staffG" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#a9743a"/><stop offset="1" stop-color="#6a4118"/></linearGradient>
+          <linearGradient id="hornG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e2b261"/><stop offset="1" stop-color="#7f531c"/></linearGradient>
+          <linearGradient id="sandG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6dca2"/><stop offset="1" stop-color="#e0b878"/></linearGradient>
+          <linearGradient id="st0" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f0d09a"/><stop offset="1" stop-color="#d8b178"/></linearGradient>
+          <linearGradient id="st1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e8c58a"/><stop offset="1" stop-color="#cf9f66"/></linearGradient>
+          <linearGradient id="st2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#edcb92"/><stop offset="1" stop-color="#d5a96f"/></linearGradient>
+          <linearGradient id="st3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e2bb7e"/><stop offset="1" stop-color="#c79860"/></linearGradient>
+          <radialGradient id="vigG" cx=".5" cy=".5" r=".75"><stop offset=".55" stop-color="#120a22" stop-opacity="0"/><stop offset="1" stop-color="#120a22" stop-opacity=".55"/></radialGradient>
+          <radialGradient id="sunG"><stop offset="0" stop-color="#fffbe6"/><stop offset=".6" stop-color="#ffe9a0"/><stop offset="1" stop-color="#ffc94a"/></radialGradient>
+          <linearGradient id="rayG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".3"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+          <linearGradient id="goldT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff6cf"/><stop offset=".5" stop-color="#f2c75a"/><stop offset="1" stop-color="#b9821f"/></linearGradient>
+          <clipPath id="winclip"><path d="M338 172 V150 Q338 134 360 134 Q382 134 382 150 V172Z"/></clipPath>
+        </defs>
+
+        <rect width="800" height="450" fill="url(#skyG)"/>
+
+        <g id="sun">
+          <g class="rays2" id="rays2"></g>
+          <circle r="150" fill="url(#glowG)" opacity=".55"/>
+          <circle r="30" fill="url(#sunG)"/>
+          <ellipse rx="190" ry="2.2" fill="#fff" opacity=".35"/>
+          <ellipse rx="70" ry="1.2" fill="#fff" opacity=".6"/>
+        </g>
+
+        <g id="clouds" fill="#fff" opacity=".92">
+          <g class="cloud" style="animation-delay:-18s"><g transform="translate(0 70)"><circle cx="0" cy="0" r="20"/><circle cx="24" cy="-10" r="26"/><circle cx="52" cy="0" r="20"/><rect x="-8" y="0" width="70" height="20" rx="10"/></g></g>
+          <g class="cloud" style="animation-delay:-48s;animation-duration:100s"><g transform="translate(0 130) scale(.8)"><circle cx="0" cy="0" r="20"/><circle cx="24" cy="-10" r="26"/><circle cx="52" cy="0" r="20"/><rect x="-8" y="0" width="70" height="20" rx="10"/></g></g>
+          <g class="cloud" style="animation-delay:-70s;animation-duration:90s"><g transform="translate(0 40) scale(.65)"><circle cx="0" cy="0" r="20"/><circle cx="24" cy="-10" r="26"/><circle cx="52" cy="0" r="20"/><rect x="-8" y="0" width="70" height="20" rx="10"/></g></g>
+        </g>
+
+        <g id="shake"><g transform="translate(0 -52)"><g id="dolly"><g id="cam">
+          <path d="M0 330 Q120 262 260 318 T520 306 T800 298 V520 H0Z" fill="#b8dd8c"/>
+          <path d="M0 348 Q160 318 330 346 T660 336 T800 342 V520 H0Z" fill="#92cf7b"/>
+          <path d="M0 346 H800 V520 H0Z" fill="url(#sandG)"/>
+          <path d="M0 346 Q100 338 200 346 T400 346 T600 346 T800 346 V358 Q700 366 600 358 T400 358 T200 358 T0 358Z" fill="#7dc36d"/>
+          <g fill="#d9b06a" opacity=".7"><ellipse cx="120" cy="438" rx="38" ry="5"/><ellipse cx="450" cy="432" rx="52" ry="5"/><ellipse cx="690" cy="440" rx="34" ry="5"/></g>
+
+          <g id="palms" class="sg" data-s="0 1 2 10"></g>
+
+          <g id="wallg" class="sg fadeout" data-s="3 4 5 6 7 8 9 10">
+            <g id="city"></g>
+            <g id="peekers"></g>
+            <g class="wallrise">
+              <g id="wall"></g>
+              <g id="rahab">
+                <rect x="320" y="120" width="80" height="70" fill="#f6dfaa" stroke="#b58a4f" stroke-width="2"/>
+                <rect x="314" y="110" width="92" height="11" rx="4" fill="#d9604c" stroke="#a8412f" stroke-width="1.5"/>
+                <path d="M338 172 V150 Q338 134 360 134 Q382 134 382 150 V172Z" fill="#3b2a22"/>
+                <rect x="333" y="172" width="54" height="6" rx="2" fill="#c99a5b"/>
+                <path id="cord" d="M360 178 C351 205 369 228 358 254 S365 296 360 338" fill="none" stroke="#e02f3d" stroke-width="4" stroke-linecap="round"/>
+              </g>
+            </g>
+          </g>
+
+          <g id="dust" class="sg" data-s="8"></g>
+
+          <g id="g0" class="sg" data-s="0"></g>
+          <g id="g1" class="sg" data-s="1"></g>
+          <g id="g2" class="sg" data-s="2"></g>
+          <g id="g3" class="sg" data-s="3"></g>
+          <g id="g4" class="sg" data-s="4"></g>
+          <g id="g5" class="sg" data-s="5"></g>
+          <g id="g6" class="sg" data-s="6"></g>
+          <g id="g7" class="sg" data-s="7 8"></g>
+          <g id="g9" class="sg" data-s="9"></g>
+          <g id="g10" class="sg" data-s="10"></g>
+        </g></g></g></g>
+
+        <!-- HUD layer, never zoomed -->
+        <g id="h0" class="sg" data-s="0"></g>
+        <g id="h1" class="sg" data-s="1"></g>
+        <g id="h2" class="sg" data-s="2"></g>
+        <g id="h3" class="sg" data-s="3"></g>
+        <g id="h4" class="sg" data-s="4"></g>
+        <g id="hday" class="sg" data-s="5 6">
+          <g transform="translate(0 70)"><rect x="18" y="0" width="372" height="92" rx="10" fill="rgba(10,8,24,.62)" stroke="#e0b84a" stroke-width="2"/>
+          <text id="dayLbl" class="cz" x="38" y="38" font-size="26" fill="#f6e7bd">DÍA 1 DE 6</text>
+          <g id="dots" transform="translate(0 -24)"></g></g>
+        </g>
+        <g id="h7" class="sg" data-s="7"></g>
+        <g id="h8" class="sg" data-s="8"></g>
+        <g id="h10" class="sg" data-s="10"></g>
+        <rect width="800" height="450" style="fill:var(--grade)" pointer-events="none"/>
+        <g id="motes" pointer-events="none"></g>
+        <rect class="flashr" width="800" height="450" fill="#fff" pointer-events="none"/>
+        <rect width="800" height="450" fill="url(#vigG)" pointer-events="none"/>
+      </svg>
+      <div id="endcard" hidden><button id="replay" type="button">Ver otra vez</button></div>
+    </div>
+
+    <div class="caption"><p id="capText"></p></div>
+
+    <div class="controls">
+      <button id="play" type="button" aria-label="Pausa"></button>
+      <div class="segs" id="segs" role="group" aria-label="Ir a una escena"></div>
+      <span id="time">0:00 / 0:00</span>
+    </div>
+  </section>
+  <p class="hint">Toca una barra para ir a cualquier escena. La barra espaciadora pausa y reproduce. Las flechas izquierda y derecha cambian de escena.</p>
+</main>
+
+<script>
+(function(){
+  if(location.hash==='#render')document.documentElement.classList.add('render');
+
+  /* ---------- story script ---------- */
+  var S=[
+    {n:'Título',d:8,c:[[0,'Una historia bíblica para niños: Josué y los muros de Jericó.']]},
+    {n:'Moisés y Josué',d:16,c:[[0,'Hace mucho tiempo, el pueblo de Dios, los israelitas, era guiado por un hombre sabio llamado Moisés.'],[8,'Cuando Moisés envejeció, Dios eligió a un nuevo líder. ¡Se llamaba Josué!']]},
+    {n:'Sé valiente',d:16,b:[6],c:[[0,'Josué se sentía un poco nervioso. ¡Era una tarea muy grande!'],[6,'Pero Dios le dijo: \u00ABSé fuerte y valiente. No tengas miedo. Yo estaré contigo dondequiera que vayas.\u00BB']]},
+    {n:'Jericó',d:16,c:[[0,'Dios le había prometido a su pueblo un nuevo hogar. Pero una gran ciudad llamada Jericó estaba en el camino.'],[8,'Jericó tenía muros altos y gruesos, y sus puertas estaban bien cerradas. ¿Cómo podrían entrar los israelitas?']]},
+    {n:'El plan de Dios',d:16,c:[[0,'¡Dios tenía un plan sorprendente! Le dijo a Josué: \u00ABDen una vuelta a la ciudad una vez al día durante seis días.\u00BB'],[6.5,'\u00ABEl séptimo día, den siete vueltas. Siete sacerdotes tocarán trompetas hechas de cuernos de carnero.\u00BB'],[11.5,'Y el pueblo debía guardar silencio hasta que llegara el momento de gritar.']]},
+    {n:'La marcha',d:27,c:[[0,'Josué y los israelitas marcharon alrededor de Jericó. Los sacerdotes llevaban el Arca, la caja dorada de Dios, y tocaban sus cuernos.'],[9,'Nadie dijo ni una palabra. Dieron una vuelta y regresaron al campamento.'],[18,'Día tras día, durante seis días. ¡La gente de Jericó miraba desde sus muros y se preguntaba qué estaba pasando!']]},
+    {n:'El séptimo día',d:20,c:[[0,'El séptimo día se levantaron al amanecer. ¡Esta vez dieron la vuelta a la ciudad no una, sino siete veces!'],[10,'Vuelta tras vuelta, los sacerdotes seguían tocando sus cuernos.'],[16.8,'¡Ahora, la última vuelta!']]},
+    {n:'El grito',d:14,b:[5,8],c:[[0,'¡Entonces los sacerdotes dieron un toque largo y fuerte con sus cuernos!'],[5,'Y Josué gritó: \u00AB¡Griten! ¡El Señor les ha dado la ciudad!\u00BB'],[9,'¡Todos gritaron con todas sus fuerzas!']]},
+    {n:'Caen los muros',d:12,c:[[0,'¡Y entonces, PUM! ¡Los fuertes muros de Jericó se vinieron abajo!'],[6,'Dios hizo exactamente lo que prometió. El pueblo entró en la ciudad.']]},
+    {n:'Rahab',d:14,c:[[0,'Pero una familia fue protegida. Una mujer llamada Rahab había ayudado a dos espías israelitas, así que colgó un cordón rojo en su ventana.'],[7.5,'Josué cumplió su promesa, y Rahab y toda su familia se salvaron.']]},
+    {n:'Fin',d:16,c:[[0,'Josué aprendió que cuando confiamos en Dios y hacemos lo que él dice, ¡aunque su plan parezca extraño, pueden pasar cosas increíbles!'],[9,'\u00ABSé fuerte y valiente\u2026 porque el Señor tu Dios estará contigo dondequiera que vayas.\u00BB Josué 1:9']]}
+  ];
+  var TOTAL=S.reduce(function(a,s){return a+s.d},0);
+
+  /* ---------- characters: realistic proportions (about 7.5 heads tall), shaded skin and cloth ---------- */
+  var SKINS=['#d8a173','#c48658','#a96b40','#8a5231'];
+  var ROBES=['#b5523b','#3f7a6e','#c98a3c','#6b5ca5','#b8a05a','#3d7fa8','#a8403f','#5b7f4a'];
+  var WRAPS=['#efe7d4','#d9c9a3','#c9b48a','#e9dcc0'];
+  var JOSH={robe:'#2f6f9f',mantle:'#e6d9bd',hair:'#3a2616',beard:1,band:1,skin:SKINS[1]};
+  var MOSES={robe:'#6b4f35',mantle:'#efe7d4',gray:1,beard:1,wrap:'#efe7d4',skin:SKINS[1],sleeves:'long',staff:1};
+  var PRIEST={robe:'#f6f1e6',plate:1,hat:1,sleeves:'long',trim:'#c8932a',belt:'#2c5aa0'};
+  function folk(i){return {robe:ROBES[i%8],skin:SKINS[i%4],wrap:(i%2?WRAPS[i%4]:null),beard:(i%3===0?1:0),hair:(i%3===2?'#4a3020':'#241610')}}
+  function mix(){var r={};for(var i=0;i<arguments.length;i++)Object.assign(r,arguments[i]);return r}
+
+  function person(o){
+    o=Object.assign({robe:'#4a7bd1',skin:SKINS[0],hair:'#241610',mood:'happy',arms:'down',cd:0,d:0,belt:'#6f4524',sleeves:'short',walk:false},o);
+    var hc=o.gray?'#d6d6dc':o.hair,sk=o.skin,dl=o.cd+o.d,rb=o.robe;
+    var it=(typeof o.walk==='number')?o.walk:'infinite';
+    function A(n,dur){return 'animation:'+n+' '+dur+'s ease-in-out '+dl+'s infinite'}
+    function Rt(deg){return 'transform:rotate('+deg+'deg)'}
+    var LU=Rt(6),LF=Rt(5),RU=Rt(-6),RF=Rt(-5),ar=o.arms;
+    if(o.staff){LU=Rt(10);LF=Rt(12)}
+    if(ar==='wave'){RU=A('waveU',.9);RF=A('waveF',.9)}
+    else if(ar==='cheer'){LU=A('cheerLU',.5);LF=A('cheerLF',.5);RU=A('cheerRU',.5);RF=A('cheerRF',.5)}
+    else if(ar==='horn'){RU=Rt(-150);RF=Rt(-136)}
+    if(o.walk){
+      var wk='animation-duration:.84s;animation-timing-function:ease-in-out;animation-iteration-count:'+it+';animation-delay:'+dl+'s;';
+      if(!o.staff)LU='animation-name:swingA;'+wk;
+      if(ar==='down')RU='animation-name:swingB;'+wk;
+    }
+    var long=o.sleeves==='long';
+    function arm(side,U,F){
+      var up='M-6.4 -3.5 Q-8.2 13 -6 28 L6 28 Q8.2 13 6.4 -3.5 Q0 -7.5 -6.4 -3.5Z';
+      var fo=long?'M-6 0 Q-7.4 13 -6.4 27 L6.4 27 Q7.4 13 6 0Z':'M-4.2 0 Q-5 13 -3.8 26 L3.8 26 Q5 13 4.2 0Z';
+      var s='<g transform="translate('+(side*21)+' -125)"><g style="'+U+'"><path d="'+up+'" fill="'+rb+'"/><path d="'+up+'" fill="url(#robeShade)"/>';
+      s+='<g transform="translate(0 28)"><g style="'+F+'"><path d="'+fo+'" fill="'+(long?rb:sk)+'"/>'+(long?'<path d="'+fo+'" fill="url(#robeShade)"/>':'');
+      s+='<path d="M-3.8 25 Q-5.4 32 -3.4 37 Q0 39 3.4 37 Q5.4 32 3.8 25Z" fill="'+sk+'"/><ellipse cx="'+(side>0?-4.4:4.4)+'" cy="29" rx="1.6" ry="3.3" fill="'+sk+'"/></g></g></g></g>';
+      return s;
+    }
+    var s='<ellipse cx="0" cy="2" rx="26" ry="5" fill="rgba(40,20,0,.2)"/>';
+    if(o.staff)s+='<rect x="-39.5" y="-166" width="5" height="168" rx="2.5" fill="url(#staffG)"/><circle cx="-37" cy="-168" r="4.5" fill="#7a4d22"/>';
+    // legs and sandals
+    var fa=o.walk?'animation:step .84s linear '+dl+'s '+it:'',fb=o.walk?'animation:step .84s linear '+(dl-.42)+'s '+it:'';
+    s+='<rect x="-11" y="-16" width="6.5" height="14" rx="3" fill="'+sk+'"/><rect x="4.5" y="-16" width="6.5" height="14" rx="3" fill="'+sk+'"/>';
+    s+='<g style="'+fa+'"><ellipse cx="-8" cy="-2.5" rx="8" ry="3.4" fill="#5e3f26"/><path d="M-13 -4 Q-8 -8 -3 -4" stroke="#c9a46a" stroke-width="1.2" fill="none"/></g>';
+    s+='<g style="'+fb+'"><ellipse cx="8" cy="-2.5" rx="8" ry="3.4" fill="#5e3f26"/><path d="M3 -4 Q8 -8 13 -4" stroke="#c9a46a" stroke-width="1.2" fill="none"/></g>';
+    // tunic
+    var body='M-21 -127 Q-23 -118 -19 -100 Q-17 -90 -19 -80 Q-26 -40 -26 -10 Q0 -3 26 -10 Q26 -40 19 -80 Q17 -90 19 -100 Q23 -118 21 -127 Q10 -132 0 -131 Q-10 -132 -21 -127Z';
+    s+='<path d="'+body+'" fill="'+rb+'"/><path d="'+body+'" fill="url(#robeShade)"/><path d="'+body+'" fill="url(#hemShade)"/>';
+    s+='<path d="M-6 -88 Q-9 -50 -12 -12 M5 -88 Q8 -50 11 -12 M-15 -84 Q-21 -50 -23 -14 M15 -84 Q20 -50 22 -14" stroke="rgba(0,0,0,.16)" stroke-width="1.6" fill="none"/>';
+    s+='<path d="M0 -86 Q1 -50 0 -12" stroke="rgba(255,255,255,.14)" stroke-width="2" fill="none"/><path d="M21 -127 Q23 -118 19 -100 Q17 -90 19 -80 Q26 -40 26 -10" stroke="rgba(255,236,190,.42)" stroke-width="1.6" fill="none"/>';
+    if(o.trim)s+='<path d="M-25.6 -14 Q0 -7 25.6 -14" stroke="'+o.trim+'" stroke-width="3" fill="none"/>';
+    s+='<path d="M-5.5 -131.5 L0 -119 L5.5 -131.5Z" fill="'+sk+'"/><path d="M-5.5 -131.5 L0 -119 L5.5 -131.5Z" fill="rgba(0,0,0,.14)"/>';
+    s+='<path d="M-19.5 -101 Q0 -95 19.5 -101 L19.8 -95.5 Q0 -89.5 -19.8 -95.5Z" fill="'+o.belt+'"/><rect x="-2.6" y="-99.5" width="5.2" height="5" rx="1" fill="url(#gold)"/>';
+    if(o.plate){
+      s+='<rect x="-10.5" y="-124" width="21" height="21" rx="3" fill="url(#gold)" stroke="#9a6d12" stroke-width=".8"/>';
+      ['#d1313b','#2c6fd1','#2fa36b','#7a45b8'].forEach(function(c,i){s+='<circle cx="'+(-5.2+(i%2)*10.4)+'" cy="'+(-118+Math.floor(i/2)*9)+'" r="2.2" fill="'+c+'" stroke="#fff" stroke-width=".5"/>'});
+    }
+    if(o.mantle){
+      var m='M-22 -128 Q-8 -133 6 -128 L26 -92 Q22 -78 14 -70 Q0 -96 -21 -108Z';
+      s+='<path d="'+m+'" fill="'+o.mantle+'"/><path d="'+m+'" fill="url(#robeShade)"/><path d="M-10 -122 Q4 -104 18 -78 M-16 -114 Q0 -98 10 -76" stroke="rgba(0,0,0,.14)" stroke-width="1.4" fill="none"/>';
+    }
+    s+=arm(-1,LU,LF)+arm(1,RU,RF);
+    // neck
+    s+='<path d="M-3.9 -139 L-3.9 -128 Q0 -125 3.9 -128 L3.9 -139Z" fill="'+sk+'"/><path d="M-3.9 -139 L-3.9 -133 Q0 -130 3.9 -133 L3.9 -139Z" fill="rgba(0,0,0,.2)"/>';
+    // head
+    var h='';
+    if(o.long||o.female)h+='<path d="M-10 -154 Q-15 -128 -10 -108 L10 -108 Q15 -128 10 -154Z" fill="'+hc+'"/>';
+    if(o.female&&o.wrap)h+='<path d="M-11 -156 Q-17 -134 -13 -112 L13 -112 Q17 -134 11 -156Z" fill="'+o.wrap+'"/><path d="M-11 -156 Q-17 -134 -13 -112 L13 -112 Q17 -134 11 -156Z" fill="url(#robeShade)"/>';
+    h+='<ellipse cx="-8.6" cy="-146" rx="1.7" ry="2.7" fill="'+sk+'"/><ellipse cx="8.6" cy="-146" rx="1.7" ry="2.7" fill="'+sk+'"/>';
+    var face='M-8.4 -149 Q-8.6 -136 0 -135 Q8.6 -136 8.4 -149 Q8 -158 0 -158 Q-8 -158 -8.4 -149Z';
+    h+='<path d="'+face+'" fill="'+sk+'"/><path d="'+face+'" fill="url(#faceShade)"/><path d="M8.4 -149 Q8.6 -136 0 -135" stroke="rgba(255,236,190,.5)" stroke-width=".9" fill="none"/>';
+    if(o.beard){
+      var b='M-8.7 -148 Q-9.8 -130 0 -125.5 Q9.8 -130 8.7 -148 Q6.6 -139.6 3.4 -138.6 Q0 -137 -3.4 -138.6 Q-6.6 -139.6 -8.7 -148Z';
+      h+='<path d="'+b+'" fill="'+hc+'"/><path d="M-5 -137 Q-4 -130 -2 -127 M0 -136 L0 -127 M5 -137 Q4 -130 2 -127" stroke="rgba(0,0,0,.2)" stroke-width=".8" fill="none"/>';
+    }
+    h+='<circle cx="-5.6" cy="-141.5" r="2.3" fill="rgba(220,100,90,.18)"/><circle cx="5.6" cy="-141.5" r="2.3" fill="rgba(220,100,90,.18)"/>';
+    h+='<path d="M0.4 -148.5 Q2 -144 2.6 -142.6 Q0 -141.2 -2.6 -142.6 Q-2 -143.6 -0.4 -145Z" fill="rgba(90,45,20,.24)"/>';
+    if(o.mood==='open')h+='<ellipse cx="0" cy="-138.4" rx="2.6" ry="2.9" fill="#5e1f1f"/><ellipse cx="0" cy="-137.3" rx="1.6" ry="1" fill="#c75d5a"/><rect x="-1.9" y="-140.6" width="3.8" height="1.2" rx=".5" fill="#fff"/>';
+    else if(o.mood==='worry')h+='<path d="M-2.9 -138.2 Q0 -140 2.9 -138.2" fill="none" stroke="#6e2a26" stroke-width="1" stroke-linecap="round"/>';
+    else h+='<path d="M-3.7 -139.6 Q0 -135.6 3.7 -139.6 Q0 -138.5 -3.7 -139.6Z" fill="#7d2f2a"/><path d="M-2.8 -139.2 Q0 -138.3 2.8 -139.2 L2.4 -138.1 Q0 -137.3 -2.4 -138.1Z" fill="#fff" opacity=".92"/>';
+    h+='<g class="eyes">';
+    [-1,1].forEach(function(sd){var x=sd*3.7;h+='<ellipse cx="'+x+'" cy="-147.2" rx="2.15" ry="1.4" fill="#fbf6ee"/><circle cx="'+x+'" cy="-147.2" r="1.15" fill="#3a2415"/><circle cx="'+(x-.35)+'" cy="-147.6" r=".4" fill="#fff"/><path d="M'+(x-2.3)+' -147.5 Q'+x+' -149.4 '+(x+2.3)+' -147.5" stroke="#2a1a12" stroke-width=".7" fill="none"/>'});
+    h+='</g>';
+    var bw=(o.mood==='worry')?'-150 Q-4 -151.6 -1.2 -153':'-151 Q-4 -152.6 -1.2 -151.2';
+    h+='<path d="M-6.6 '+bw+'" stroke="'+hc+'" stroke-width="1.15" fill="none" stroke-linecap="round"/><path d="M6.6 '+bw.replace(/-4 /,'4 ').replace(/-1\.2/g,'1.2')+'" stroke="'+hc+'" stroke-width="1.15" fill="none" stroke-linecap="round"/>';
+    if(o.hat){
+      h+='<ellipse cx="0" cy="-159" rx="10.8" ry="6.6" fill="#f4efe4"/><path d="M-9 -161 Q0 -166 9 -161 M-10 -158 Q0 -163 10 -158 M-9.4 -155 Q0 -159.5 9.4 -155" stroke="rgba(0,0,0,.14)" stroke-width="1" fill="none"/><ellipse cx="0" cy="-159" rx="10.8" ry="6.6" fill="url(#robeShade)"/><rect x="-3.4" y="-157.4" width="6.8" height="2.8" rx="1" fill="url(#gold)"/>';
+    }else if(o.wrap&&!o.female){
+      var cv='M-10.2 -150 Q-11 -167 0 -167 Q11 -167 10.2 -150 Q9 -157 0 -158.5 Q-9 -157 -10.2 -150Z';
+      h+='<path d="M-10.2 -150 Q-14.5 -138 -12.5 -126 L-8 -129 Q-9 -139 -8.8 -148Z" fill="'+o.wrap+'"/><path d="M10.2 -150 Q14.5 -138 12.5 -126 L8 -129 Q9 -139 8.8 -148Z" fill="'+o.wrap+'"/><path d="'+cv+'" fill="'+o.wrap+'"/><path d="'+cv+'" fill="url(#robeShade)"/><path d="M-9.8 -157 Q0 -160.6 9.8 -157" stroke="#2a1a12" stroke-width="1.7" fill="none"/>';
+    }else if(!o.female||!o.wrap){
+      h+='<path d="M-8.9 -149 Q-10.4 -163 0 -163.6 Q10.4 -163 8.9 -149 Q7 -155.5 3 -156.6 Q0 -154 -3 -156.6 Q-7 -155.5 -8.9 -149Z" fill="'+hc+'"/>';
+      [[-6,-157.5],[-3,-160.6],[0,-161.5],[3,-160.6],[6,-157.5]].forEach(function(p){h+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="2.3" fill="'+hc+'"/>'});
+      if(o.band)h+='<path d="M-9 -155 Q0 -158.4 9 -155" stroke="#d3a02c" stroke-width="1.7" fill="none"/>';
+    }
+    s+=o.kid?'<g transform="translate(0 -146) scale(1.2) translate(0 146)">'+h+'</g>':h;
+    if(o.horn){
+      s+='<path d="M5 -140 Q22 -142 29 -158 Q32 -166.5 26 -166.5 Q23 -166.5 22 -161 Q17 -150 5 -146Z" fill="url(#hornG)" stroke="#6b4415" stroke-width="1"/><ellipse cx="6.5" cy="-143" rx="3.3" ry="4.4" fill="'+sk+'"/>';
+      s+='<text class="note" x="30" y="-168" font-size="20" fill="#ff5c8a" style="animation-delay:'+dl+'s">♪</text>';
+    }
+    return '<g class="'+(o.cls||'')+'" style="'+(o.cls?'animation-delay:'+dl+'s':'')+'">'+s+'</g>';
+  }
+  function at(x,y,sc,o){o=o||{};var k=sc*.625;return '<g transform="translate('+x+' '+y+') scale('+(o.flip?-k:k)+' '+k+')">'+person(o)+'</g>'}
+  function ark(){
+    return '<rect x="-36" y="-9" width="72" height="5" rx="2.5" fill="#8a5a2b"/>'+
+      '<rect x="-22" y="-28" width="44" height="22" rx="3" fill="url(#gold)" stroke="#a7771c" stroke-width="1.5"/>'+
+      '<rect x="-25" y="-34" width="50" height="8" rx="3" fill="#ffd84d" stroke="#a7771c" stroke-width="1.5"/>'+
+      '<path d="M-14 -34 Q-24 -50 -8 -50 Q-4 -42 -3 -34Z" fill="#ffe27a" stroke="#a7771c" stroke-width="1"/>'+
+      '<path d="M14 -34 Q24 -50 8 -50 Q4 -42 3 -34Z" fill="#ffe27a" stroke="#a7771c" stroke-width="1"/>';
+  }
+  function palm(x,y,sc,flip){
+    var leaves='';[-200,-160,-120,-80,-40,0,25].forEach(function(a){
+      leaves+='<ellipse cx="30" cy="0" rx="32" ry="9" fill="#3fae5b" stroke="#2c8a45" stroke-width="1.5" transform="translate(0 -100) rotate('+a+')"/>';
+    });
+    return '<g transform="translate('+x+' '+y+') scale('+(flip?-sc:sc)+' '+sc+')"><path d="M0 0 Q12 -50 0 -100" fill="none" stroke="#8a5a2b" stroke-width="10" stroke-linecap="round"/><g class="palmtop">'+leaves+'<circle cx="-6" cy="-94" r="5" fill="#6b4630"/><circle cx="6" cy="-93" r="5" fill="#6b4630"/></g></g>';
+  }
+  function star(cx,cy,n,ro,ri){
+    var p=[];for(var i=0;i<n*2;i++){var r=i%2?ri:ro,a=Math.PI*i/n-Math.PI/2;p.push((cx+Math.cos(a)*r).toFixed(1)+','+(cy+Math.sin(a)*r).toFixed(1))}
+    return p.join(' ');
+  }
+  function $(id){return document.getElementById(id)}
+
+  /* ---------- scenery built once ---------- */
+  var seed2=3;function R0(){seed2=(seed2*1664525+1013904223)%4294967296;return seed2/4294967296}
+  var seed=7;function R(){seed=(seed*1664525+1013904223)%4294967296;return seed/4294967296}
+  var gr='';[8,20,32,44,58,72].forEach(function(a){gr+='<polygon points="0,0 -'+(18+a/3)+',900 '+(18+a/3)+',900" fill="url(#rayG)" transform="rotate('+a+')"/>'});
+  $('rays2').innerHTML=gr;
+  var mt='';for(var q=0;q<28;q++){mt+='<circle class="mote" cx="'+(R0()*800).toFixed(0)+'" cy="'+(150+R0()*280).toFixed(0)+'" r="'+(1+R0()*2.4).toFixed(1)+'" fill="rgba(255,244,214,.7)" style="--mx:'+((R0()-.3)*90).toFixed(0)+'px;animation-duration:'+(10+R0()*10).toFixed(1)+'s;animation-delay:-'+(R0()*14).toFixed(1)+'s"/>'}
+  $('motes').innerHTML=mt;
+
+  $('palms').innerHTML=palm(46,425,1.25)+palm(758,428,1.35,true);
+
+  var city='';
+  for(var x=8;x<790;x+=44+R()*10){
+    if(x>296&&x<404)continue;
+    var h=30+R()*40,w=38,col=R()>.5?'#f0d4a0':'#e6c58f';
+    city+='<rect x="'+x.toFixed(0)+'" y="'+(190-h).toFixed(0)+'" width="'+w+'" height="'+h.toFixed(0)+'" fill="'+col+'" stroke="#b58a4f" stroke-width="1.5"/>';
+    city+='<path d="M'+x.toFixed(0)+' '+(190-h).toFixed(0)+' a19 15 0 0 1 38 0Z" fill="#e9a45f" stroke="#b9772f" stroke-width="1.5"/>';
+    city+='<rect x="'+(x+14).toFixed(0)+'" y="'+(190-h+10).toFixed(0)+'" width="10" height="14" rx="5" fill="#6b4630"/>';
+  }
+  $('city').innerHTML=city;
+
+  var pk='';[120,240,480,600,680].forEach(function(px,i){
+    var tc=['#b5523b','#3f7a6e','#6b5ca5','#a8403f','#3d7fa8'][i];
+    pk+='<g transform="translate('+px+' 188)"><g class="peek" style="animation-delay:-'+(i*.37).toFixed(2)+'s"><circle cx="0" cy="-6" r="9" fill="'+SKINS[i%4]+'"/><circle cx="0" cy="-6" r="9" fill="url(#faceShade)"/><path d="M-9.5 -8 Q0 -22 9.5 -8Z" fill="'+tc+'"/><circle cx="-3.2" cy="-6" r="1.8" fill="#2b1a10"/><circle cx="3.2" cy="-6" r="1.8" fill="#2b1a10"/><ellipse cx="0" cy="-1" rx="2" ry="2.4" fill="#7a2b2b"/></g></g>';
+  });
+  $('peekers').innerHTML=pk;
+
+  var shades=['url(#st0)','url(#st1)','url(#st2)','url(#st3)'];
+  function blk(x,y,w,h,fill,stay){
+    var dy=(350-(y+h))+R()*22,dx=(R()-.5)*70,rot=(R()-.5)*140,dl=R()*.9,du=1.1+R()*.9;
+    return '<rect '+(stay?'':'class="blk" ')+'x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" rx="3" fill="'+fill+'" stroke="#b58a4f" stroke-width="1.5" style="--dx:'+dx.toFixed(1)+'px;--dy:'+dy.toFixed(1)+'px;--rot:'+rot.toFixed(0)+'deg;--dl:'+dl.toFixed(2)+'s;--du:'+du.toFixed(2)+'s"/>';
+  }
+  var w='';
+  for(var rr=0;rr<6;rr++){for(var c=0;c<20;c++){w+=blk(c*40,190+rr*26,40,26,shades[(rr+c)%4],c===8||c===9)}}
+  [0,1,18,19].forEach(function(c){[-2,-1].forEach(function(rr2){w+=blk(c*40,190+rr2*26,40,26,shades[(c+rr2+8)%4])})});
+  for(var c2=2;c2<18;c2++){if(c2===8||c2===9)continue;w+=blk(c2*40+10,176,20,14,'url(#st1)')}
+  w+='<polygon class="blk" points="-4,138 40,98 84,138" fill="#d9604c" stroke="#a8412f" stroke-width="2" style="--dx:-20px;--dy:200px;--rot:-40deg;--dl:.1s;--du:1.4s"/>';
+  w+='<polygon class="blk" points="716,138 760,98 804,138" fill="#d9604c" stroke="#a8412f" stroke-width="2" style="--dx:20px;--dy:200px;--rot:40deg;--dl:.2s;--du:1.5s"/>';
+  w+='<g class="blk" style="--dx:6px;--dy:6px;--rot:6deg;--dl:.3s;--du:1.2s"><path d="M480 346 V292 Q480 262 520 262 Q560 262 560 292 V346Z" fill="#6b4630" stroke="#3f2a1c" stroke-width="3"/><path d="M520 262 V346 M500 266 V346 M540 266 V346" stroke="#4d3322" stroke-width="2"/><circle cx="508" cy="312" r="3.5" fill="#ffd45e"/><circle cx="532" cy="312" r="3.5" fill="#ffd45e"/></g>';
+  $('wall').innerHTML=w;
+
+  var du='';for(var k=0;k<10;k++){du+='<circle class="puff" cx="'+(40+k*76+R()*30).toFixed(0)+'" cy="'+(335+R()*14).toFixed(0)+'" r="'+(24+R()*14).toFixed(0)+'" fill="#f6ecd8" style="animation-delay:'+(R()*1.4).toFixed(2)+'s"/>'}
+  $('dust').innerHTML=du;
+
+  /* ---------- scene 0: title ---------- */
+  $('g0').innerHTML=at(590,440,2.3,mix(JOSH,{staff:1,arms:'wave',cls:'breath'}));
+  $('h0').innerHTML=
+    '<g style="animation:fadein 2.2s .5s both"><text class="cz" x="42" y="178" font-size="112" fill="url(#goldT)" stroke="rgba(25,12,45,.65)" stroke-width="9" stroke-linejoin="round" paint-order="stroke">JOSUÉ</text></g>'+
+    '<path d="M44 198 H430" stroke="#e0b84a" stroke-width="2.5" style="animation:fadein 2s 1.3s both"/>'+
+    '<g style="animation:fadein 2s 1.6s both"><text class="cz" x="44" y="238" font-size="27" fill="#f6e7bd" stroke="rgba(25,12,45,.6)" stroke-width="6" paint-order="stroke" style="letter-spacing:.2em">Y LOS MUROS DE JERICÓ</text></g>';
+
+  /* ---------- scene 1: Moses hands over to Joshua ---------- */
+  $('g1').innerHTML=
+    at(395,392,.8,mix(folk(2),{arms:'wave',d:-.1}))+at(440,392,.8,mix(folk(5),{arms:'wave',d:-.3}))+
+    '<circle cx="570" cy="257" r="70" fill="url(#glowG)" style="animation:pop .8s 8.6s both;transform-box:fill-box;transform-origin:center"/>'+
+    at(235,436,1.9,mix(MOSES,{arms:'wave',cls:'breath'}))+
+    at(570,436,1.9,mix(JOSH,{arms:'cheer',cd:8.6,cls:'breath'}))+
+    '<g style="animation:spark 2.6s 6s ease-in-out both"><polygon points="'+star(191,230,4,18,6)+'" fill="#ffd23f" stroke="#fff" stroke-width="2" style="animation:sparkOut 2.6s 6s both"/></g>';
+  $('h1').innerHTML='<g transform="translate(0 -52)">'+
+    '<g class="popb" style="animation-delay:.3s"><text class="cz" x="235" y="226" text-anchor="middle" font-size="30" fill="#f6e7bd" stroke="rgba(25,12,45,.6)" stroke-width="6" paint-order="stroke">MOISÉS</text><path d="M180 238 H290" stroke="#e0b84a" stroke-width="2"/></g>'+
+    '<g class="popb" style="animation-delay:8.4s"><text class="cz" x="570" y="226" text-anchor="middle" font-size="30" fill="url(#goldT)" stroke="rgba(25,12,45,.6)" stroke-width="6" paint-order="stroke">JOSUÉ</text><path d="M520 238 H620" stroke="#e0b84a" stroke-width="2"/></g></g>';
+
+  /* ---------- scene 2: be strong and courageous ---------- */
+  $('g2').innerHTML=
+    '<g class="m2a">'+at(400,444,2.3,mix(JOSH,{staff:1,mood:'worry',cls:'breath'}))+'</g>'+
+    '<g class="m2b"><polygon class="beam" points="340,0 460,0 560,440 240,440" fill="url(#beamG)"/>'+at(400,444,2.3,mix(JOSH,{staff:1,mood:'happy',arms:'wave',cls:'breath'}))+'</g>';
+  $('h2').innerHTML=
+    '<g class="ban"><g class="popc" style="transform-origin:400px 110px"><text class="cz" x="400" y="118" text-anchor="middle" font-size="44" fill="url(#goldT)" stroke="rgba(25,12,45,.7)" stroke-width="8" stroke-linejoin="round" paint-order="stroke">¡SÉ FUERTE Y VALIENTE!</text></g>'+
+    '<polygon class="twinkle" points="'+star(110,96,4,16,5)+'" fill="#fff6cf"/><polygon class="twinkle" points="'+star(700,150,4,13,4)+'" fill="#fff6cf" style="animation-delay:.5s"/><polygon class="twinkle" points="'+star(660,84,4,10,3)+'" fill="#ffe9a0" style="animation-delay:.9s"/></g>';
+
+  /* ---------- scene 3: Jericho looks huge ---------- */
+  var crowd3='',xs3=[70,125,180,235,290];
+  xs3.forEach(function(px,i){crowd3+=at(px,408,1,mix(folk(i),{mood:'worry',walk:4,cls:'bob8',d:-(i*.08)}))});
+  $('g3').innerHTML='<g class="walkin">'+crowd3+'</g>'+at(375,418,1.3,mix(JOSH,{staff:1,mood:'open',cls:'breath'}));
+  var q='';xs3.forEach(function(px,i){
+    q+='<g class="popc" style="animation-delay:'+(3.4+i*.3).toFixed(1)+'s"><text x="'+px+'" y="236" text-anchor="middle" font-size="40" fill="#fff6cf" stroke="rgba(25,12,45,.75)" stroke-width="7" stroke-linejoin="round" paint-order="stroke">?</text></g>';
+  });
+  $('h3').innerHTML=q+'<g style="animation:fadeLoc 7s .6s both"><text class="cz" x="44" y="150" font-size="58" fill="#f6e7bd" stroke="rgba(25,12,45,.7)" stroke-width="8" paint-order="stroke" style="letter-spacing:.14em">JERICÓ</text><path d="M46 168 H300" stroke="#e0b84a" stroke-width="2.5"/></g>';
+
+  /* ---------- scene 4: God's plan ---------- */
+  var horns='';for(var hh=0;hh<7;hh++){horns+='<g transform="translate('+(392+hh*36)+' 270) scale(.9)"><path d="M0 0 Q18 -2 24 -18 Q26 -26 20 -26 Q18 -26 17 -22 Q12 -9 0 -8Z" fill="#c98b3c" stroke="#8a5a1f" stroke-width="2"/></g>'}
+  var d6='',d7='';for(var a=0;a<6;a++){d6+='<circle cx="'+(552+a*32)+'" cy="86" r="11" fill="#4cb87a"/>'}
+  for(var b=0;b<7;b++){d7+='<circle cx="'+(552+b*29)+'" cy="178" r="11" fill="#ff9f40"/>'}
+  $('g4').innerHTML=
+    '<polygon class="beam" points="90,0 210,0 270,440 30,440" fill="url(#beamG)"/>'+
+    at(150,430,1.9,mix(JOSH,{staff:1,mood:'open',cls:'breath'}));
+  $('h4').innerHTML=
+    '<g transform="translate(0 -52)"><circle cx="232" cy="236" r="8" fill="rgba(255,255,255,.85)"/><circle cx="282" cy="256" r="13" fill="rgba(255,255,255,.85)"/></g>'+
+    '<g transform="translate(0 40)"><rect x="340" y="26" width="440" height="296" rx="22" fill="rgba(18,14,40,.86)" stroke="#e0b84a" stroke-width="3" class="popc" style="animation-delay:.3s;transform-origin:560px 174px"/>'+
+    '<g class="popc" style="animation-delay:1s"><text class="cz" x="372" y="96" font-size="34" fill="url(#goldT)">6 DÍAS</text>'+d6+'<text x="372" y="134" font-size="25" fill="#d9d2f0">1 vuelta a la ciudad por día</text></g>'+
+    '<g class="popc" style="animation-delay:6.5s"><text class="cz" x="372" y="190" font-size="34" fill="#ffb27a">DÍA 7</text>'+d7+'<text x="372" y="226" font-size="25" fill="#d9d2f0">¡7 vueltas y un gran grito!</text></g>'+
+    '<g class="popc" style="animation-delay:11.5s">'+horns+'<text x="392" y="308" font-size="25" fill="#d9d2f0">7 sacerdotes, 7 cuernos</text></g></g>';
+
+  /* ---------- scenes 5 and 6: the march ---------- */
+  function row(){
+    var s='',i=0;
+    s+=at(0,0,1,mix(JOSH,{staff:1,walk:true,cls:'bob',d:0}));
+    [-36,-72].forEach(function(x){i++;s+=at(x,0,1,mix(folk(i),{walk:true,cls:'bob',d:-(i*.09)}))});
+    for(var k=0;k<7;k++){i++;s+=at(-108-36*k,0,1,mix(PRIEST,{skin:SKINS[i%4],arms:'horn',walk:true,cls:'bob',d:-(i*.07)}))}
+    s+=at(-380,0,1,mix(PRIEST,{walk:true,cls:'bob',d:-.2}));
+    s+=at(-440,0,1,mix(PRIEST,{walk:true,cls:'bob',d:-.3,skin:SKINS[2]}));
+    s+='<g transform="translate(-410 -74)"><g class="bob" style="animation-delay:-.25s">'+ark()+'</g></g>';
+    [-490,-526,-562,-598].forEach(function(x){i++;s+=at(x,0,1,mix(folk(i),{walk:true,cls:'bob',d:-(i*.06)}))});
+    return s;
+  }
+  var rowSvg=row();
+  $('g5').innerHTML='<g transform="translate(0 414)"><g class="march5"><g transform="scale(.82)">'+rowSvg+'</g></g></g>';
+  $('g6').innerHTML='<g transform="translate(0 414)"><g class="march6"><g transform="scale(.82)">'+rowSvg+'</g></g></g>';
+
+  var dots='';for(var dd=0;dd<7;dd++){dots+='<circle class="dot" cx="'+(46+dd*40)+'" cy="92" r="10" fill="#4a4d73"/>'}
+  $('dots').innerHTML=dots;
+  var dotEls=$('dots').children,dayLbl=$('dayLbl');
+
+  /* ---------- scene 7 and 8: the shout ---------- */
+  var g7='';
+  [40,110,180,250,340,460,550,620,690,760].forEach(function(px,i){
+    g7+=at(px,400,.95,mix(folk(i),{arms:'cheer',cd:5,d:-(i*.08),cls:'hop'}));
+  });
+  var pxs=[95,170,245,320,480,555,630],rings='';
+  pxs.forEach(function(px,i){
+    g7+=at(px,434,1.15,mix(PRIEST,{skin:SKINS[i%4],arms:'horn',cls:'breath',d:-(i*.2)}));
+    rings+='<circle class="ring" cx="'+(px+20)+'" cy="'+(434-118)+'" r="10" fill="none" stroke="#fff" stroke-width="3" style="animation-delay:'+(i*.18).toFixed(2)+'s"/>';
+  });
+  g7+=at(400,438,1.5,mix(JOSH,{staff:1,arms:'cheer',cd:5,mood:'open',cls:'hop'}));
+  $('g7').innerHTML=g7+rings;
+  $('h7').innerHTML='<g class="burst"><g transform="translate(0 50)"><circle class="ring" cx="400" cy="110" r="46" fill="none" stroke="#fff6cf" stroke-width="4"/><g class="popc" style="transform-origin:400px 110px"><text class="cz" x="400" y="132" text-anchor="middle" font-size="84" fill="url(#goldT)" stroke="rgba(40,14,0,.75)" stroke-width="9" stroke-linejoin="round" paint-order="stroke">¡GRITEN!</text></g></g></g>';
+  $('h8').innerHTML='';
+
+  /* ---------- scene 9: Rahab ---------- */
+  var hearts='';[[322,122,0],[360,104,.9],[398,122,1.8]].forEach(function(h){
+    hearts+='<g transform="translate('+h[0]+' '+h[1]+') scale(.32)"><g class="floaty" style="animation-delay:'+h[2]+'s"><path d="M0 0 C-10 -12 -26 0 0 22 C26 0 10 -12 0 0Z" fill="#ff4d6d"/></g></g>';
+  });
+  var sparks='';[[308,150,0],[412,146,.4],[330,196,.8],[392,200,1.2]].forEach(function(p){
+    sparks+='<polygon class="twinkle" points="'+star(p[0],p[1],4,7,2.4)+'" fill="#ffd23f" style="animation-delay:'+p[2]+'s"/>';
+  });
+  var RAHAB={robe:'#a8403f',female:1,wrap:'#d8b98a',hair:'#241610',skin:SKINS[1],mantle:'#d9c9a3'};
+  $('g9').innerHTML=
+    '<circle cx="360" cy="152" r="70" fill="url(#glowG)" opacity=".7"/>'+
+    '<path d="M338 172 V150 Q338 134 360 134 Q382 134 382 150 V172Z" fill="#ffe9b0"/>'+
+    '<g clip-path="url(#winclip)">'+
+      at(343,224,.72,mix(folk(1),{kid:1,arms:'wave',d:-.3}))+at(377,224,.72,mix(folk(4),{kid:1,arms:'wave',d:-.5}))+
+      at(360,236,.9,mix(RAHAB,{arms:'wave',mood:'happy'}))+'</g>'+
+    '<rect x="333" y="172" width="54" height="6" rx="2" fill="#c99a5b"/>'+
+    '<path d="M360 178 C351 205 369 228 358 254 S365 296 360 338" fill="none" stroke="#ff4d5e" stroke-width="5" stroke-linecap="round"/>'+sparks;
+
+  /* ---------- scene 10: finale ---------- */
+  var f='';
+  var cast=[
+    [115,1.2,folk(0)],
+    [188,.9,mix(folk(3),{kid:1})],
+    [255,1.2,mix(PRIEST,{horn:1,arms:'horn'})],
+    [325,1.2,mix(RAHAB,{})],
+    [400,1.6,mix(JOSH,{staff:1})],
+    [478,.9,mix(folk(6),{kid:1})],
+    [548,1.2,folk(7)],
+    [618,1.2,mix(PRIEST,{horn:1,arms:'horn',skin:SKINS[3]})],
+    [690,1.05,folk(5)]
+  ];
+  cast.forEach(function(c,i){f+=at(c[0],424,c[1],mix({arms:(c[2].horn?'horn':'cheer'),cls:'hop',d:-(i*.13)},c[2],c[2].horn?{arms:'horn'}:{}))});
+  var rb='',cols=['#ff4d4d','#ff9f40','#ffd23f','#6bd36b','#4cc9f0','#5b6cf0','#a45cf0'];
+  cols.forEach(function(cl,i){var rd=225-i*9;rb+='<path class="rb" pathLength="1" d="M'+(400-rd)+' 350 A'+rd+' '+rd+' 0 0 1 '+(400+rd)+' 350" fill="none" stroke="'+cl+'" stroke-opacity=".6" stroke-width="9" style="animation-delay:'+(i*.12).toFixed(2)+'s"/>'});
+  $('g10').innerHTML=rb+f;
+  var fh='';[[210,170,0],[590,180,.8],[320,130,1.6],[490,140,.4],[400,120,1.2]].forEach(function(h){
+    fh+='<polygon class="twinkle" points="'+star(h[0],h[1],4,9,3)+'" fill="#fff6cf" style="animation-delay:'+h[2]+'s"/>';
+  });
+  $('h10').innerHTML='<g class="popc" style="animation-delay:1.6s;transform-origin:400px 190px"><text class="cz" x="400" y="204" text-anchor="middle" font-size="96" fill="url(#goldT)" stroke="rgba(25,12,45,.7)" stroke-width="9" stroke-linejoin="round" paint-order="stroke" style="letter-spacing:.16em">FIN</text></g>'+fh;
+
+  /* ---------- player engine ---------- */
+  var stage=$('stage'),capText=$('capText'),playBtn=$('play'),segsEl=$('segs'),timeEl=$('time'),endcard=$('endcard');
+  var groups=Array.prototype.map.call(document.querySelectorAll('.sg'),function(el){return {el:el,set:el.dataset.s.split(' ').map(Number)}});
+  var idx=0,t=0,vt=0,playing=true,capKey='',lastTs=null,manual=false,fades=[],seen=new WeakSet();
+
+  var ICON_PAUSE='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="5" height="16" rx="1.5"/><rect x="14" y="4" width="5" height="16" rx="1.5"/></svg>';
+  var ICON_PLAY='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12-7.5a1 1 0 0 0 0-1.72l-12-7.5A1 1 0 0 0 7 4.5z"/></svg>';
+
+  var segs=S.map(function(s,i){
+    var b=document.createElement('button');b.type='button';b.setAttribute('aria-label','Escena '+(i+1)+': '+s.n);b.title=s.n;b.innerHTML='<i></i>';
+    b.addEventListener('click',function(){seek(i)});segsEl.appendChild(b);return b;
+  });
+
+  function fmt(x){x=Math.floor(x);return Math.floor(x/60)+':'+String(x%60).padStart(2,'0')}
+
+  function showScene(i,hard){
+    purge=true;
+    stage.dataset.scene=i;stage.dataset.beat='0';
+    if(hard){fades=[];groups.forEach(function(g){g.el.classList.remove('on','fading')});void stage.getBoundingClientRect()}
+    groups.forEach(function(g){
+      var want=g.set.indexOf(i)>-1,isOn=g.el.classList.contains('on');
+      if(want&&!isOn){g.el.classList.remove('fading');g.el.classList.add('on')}
+      else if(!want&&isOn){g.el.classList.remove('on');g.el.classList.add('fading');fades=fades.filter(function(f){return f.el!==g.el});fades.push({el:g.el,at:vt+.7})}
+    });
+  }
+  function setPaused(p){
+    playing=!p;stage.classList.toggle('paused',p);
+    playBtn.innerHTML=p?ICON_PLAY:ICON_PAUSE;playBtn.setAttribute('aria-label',p?'Reproducir':'Pausa');
+  }
+  function seek(i){
+    idx=Math.max(0,Math.min(S.length-1,i));t=0;capKey='';endcard.hidden=true;
+    stage.classList.toggle('settled',idx>=9);
+    showScene(idx,true);setPaused(false);update();
+  }
+  function tick(){
+    if(idx===5){
+      var day=Math.min(6,Math.floor(t/4.5)+1);
+      dayLbl.textContent='DÍA '+day+' DE 6';
+      for(var i=0;i<7;i++){dotEls[i].style.display=i<6?'':'none';dotEls[i].setAttribute('fill',i<day?'#6fd39a':'#4a4d73')}
+    }else if(idx===6){
+      var lap=Math.min(7,Math.floor(t/2.8)+1);
+      dayLbl.textContent='DÍA 7 · VUELTA '+lap+' DE 7';
+      for(var j=0;j<7;j++){dotEls[j].style.display='';dotEls[j].setAttribute('fill',j<lap?'#ff9f40':'#4a4d73')}
+    }
+  }
+  function update(){
+    var sc=S[idx],ci=0;
+    sc.c.forEach(function(c,i){if(t>=c[0])ci=i});
+    var key=idx+'-'+ci;
+    if(key!==capKey){capKey=key;capText.classList.remove('in');void capText.offsetWidth;capText.textContent=sc.c[ci][1];capText.classList.add('in')}
+    var bt=0;(sc.b||[]).forEach(function(x){if(t>=x)bt++});
+    if(String(bt)!==stage.dataset.beat)stage.dataset.beat=String(bt);
+    tick();
+    var done=0;
+    segs.forEach(function(el,i){
+      var p=i<idx?1:(i===idx?Math.min(1,t/sc.d):0);
+      el.style.setProperty('--p',p);
+      if(i<idx)done+=S[i].d;
+    });
+    timeEl.textContent=fmt(done+t)+' / '+fmt(TOTAL);
+  }
+  function advance(dt){
+    t+=dt;vt+=dt;
+    fades=fades.filter(function(f){if(vt>=f.at){f.el.classList.remove('fading');return false}return true});
+    var sc=S[idx];
+    if(t>=sc.d){
+      if(idx<S.length-1){idx++;t=0;showScene(idx,false)}
+      else{t=sc.d;setPaused(true);endcard.hidden=false}
+    }
+    update();
+  }
+  function frame(ts){
+    if(lastTs===null)lastTs=ts;
+    var dt=Math.min(.1,(ts-lastTs)/1000);lastTs=ts;
+    if(!manual&&playing)advance(dt);
+    requestAnimationFrame(frame);
+  }
+  // frame-exact stepping used when capturing the MP4: every CSS animation and transition is driven by hand
+  var purge=false;
+  function freeze(dt){
+    document.getAnimations().forEach(function(a){
+      if(purge&&a.animationName&&a.effect&&a.effect.target){
+        var nm=getComputedStyle(a.effect.target).animationName.split(',').map(function(x){return x.trim()});
+        if(nm.indexOf(a.animationName)<0){a.cancel();return}
+      }
+      if(!seen.has(a)){seen.add(a);a.pause();a.currentTime=0}
+      else a.currentTime=(+a.currentTime||0)+dt*1000;
+    });
+    purge=false;
+  }
+
+  playBtn.addEventListener('click',function(){
+    if(!endcard.hidden){seek(0);return}
+    setPaused(playing);
+  });
+  $('replay').addEventListener('click',function(){seek(0)});
+  document.addEventListener('keydown',function(e){
+    if(e.target&&e.target.tagName==='BUTTON'&&(e.key===' '||e.key==='Enter'))return;
+    if(e.key===' '||e.key==='k'){e.preventDefault();if(!endcard.hidden)seek(0);else setPaused(playing)}
+    else if(e.key==='ArrowRight')seek(idx+1);
+    else if(e.key==='ArrowLeft')seek(idx-1);
+  });
+
+  window.__story={
+    seek:seek,
+    pause:function(){setPaused(true)},
+    manual:function(){manual=true;seek(0);freeze(0)},
+    step:function(dt){advance(dt);freeze(dt)},
+    state:function(){return {idx:idx,t:t}}
+  };
+  showScene(0,true);setPaused(false);update();
+  requestAnimationFrame(frame);
+})();
+</script>
