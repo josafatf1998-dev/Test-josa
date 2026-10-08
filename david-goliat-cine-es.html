@@ -1,0 +1,747 @@
+<title>David y Goliat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Nunito:wght@600;800&family=Cinzel:wght@600;800&display=swap" rel="stylesheet">
+<style>
+@property --sky1{syntax:'<color>';inherits:true;initial-value:#8fd8ff}
+@property --sky2{syntax:'<color>';inherits:true;initial-value:#e9f8ff}
+@property --grade{syntax:'<color>';inherits:true;initial-value:rgba(255,200,120,.08)}
+
+/* Layout: a centered 16:9 cinematic stage, a cream caption strip under it, and a slim control bar with one segment per scene. */
+:root{
+  --ink:#1b1f4b;
+  --ink-2:#262b66;
+  --paper:#fff6e0;
+  --sun:#ffc43d;
+  --rose:#ff6b6b;
+  --leaf:#4cb87a;
+  --display:'Baloo 2','Trebuchet MS',system-ui,sans-serif;
+  --body:'Nunito','Segoe UI',system-ui,sans-serif;
+  --lap5:4.5s;
+  --lap6:2.8s;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--ink);color:var(--paper);font-family:var(--body);margin:0;padding-inline:16px;padding-block:24px 48px;font-size:16px}
+.wrap{max-width:960px;margin-inline:auto;display:flex;flex-direction:column;gap:18px}
+header{display:flex;flex-direction:column;gap:2px;min-width:0}
+.eyebrow{margin:0;font-weight:800;font-size:.8rem;letter-spacing:.14em;text-transform:uppercase;color:var(--sun)}
+h1{margin:0;font-family:var(--display);font-weight:800;font-size:clamp(1.9rem,5vw,2.9rem);line-height:1.05;text-wrap:balance}
+.player{background:var(--ink-2);border-radius:24px;overflow:hidden;box-shadow:0 18px 50px rgba(0,0,0,.35)}
+.screen{position:relative;line-height:0;aspect-ratio:2.35/1;overflow:hidden;background:#000}
+#stage{position:absolute;left:0;top:50%;transform:translateY(-50%);width:100%;height:auto;display:block;aspect-ratio:16/9;--sky1:#8fd8ff;--sky2:#e9f8ff;--grade:rgba(255,200,120,.08);transition:--sky1 1.6s,--sky2 1.6s,--grade 1.6s;user-select:none}
+.caption{background:#07070c;color:#fff;padding:14px 22px;min-height:calc(1.4em*2 + 28px);display:flex;align-items:center;justify-content:center;text-align:center}
+.caption p{margin:0;font-weight:800;font-size:clamp(1.05rem,1.2rem + .6vw,1.55rem);line-height:1.4;text-wrap:pretty}
+.caption p.in{animation:capIn .5s ease-out both}
+.controls{display:flex;align-items:center;gap:14px;padding:12px 16px}
+#play{flex:none;width:46px;height:46px;border-radius:50%;border:0;background:var(--sun);color:var(--ink);display:grid;place-items:center;cursor:pointer}
+#play svg{width:22px;height:22px;fill:currentColor}
+#play:hover{filter:brightness(1.08)}
+.segs{flex:1;min-width:0;display:flex;gap:4px}
+.segs button{flex:1;min-width:0;height:30px;padding:11px 0;border:0;background:none;cursor:pointer}
+.segs i{display:block;height:8px;border-radius:4px;background:rgba(255,255,255,.2);overflow:hidden}
+.segs i::after{content:'';display:block;height:100%;background:var(--sun);transform-origin:left;transform:scaleX(var(--p,0))}
+.segs button:hover i{background:rgba(255,255,255,.32)}
+#time{flex:none;font-variant-numeric:tabular-nums;font-weight:800;font-size:.9rem;opacity:.85}
+button:focus-visible{outline:3px solid #fff;outline-offset:2px;border-radius:8px}
+.hint{margin:0;font-size:.9rem;opacity:.75;text-wrap:pretty}
+#endcard{position:absolute;inset:0;display:grid;place-items:center;background:rgba(27,31,75,.5)}
+#endcard[hidden]{display:none}
+#replay{font-family:var(--display);font-weight:800;font-size:clamp(1.2rem,3vw,1.9rem);background:var(--sun);color:var(--ink);border:0;border-radius:999px;padding:.55em 1.3em;cursor:pointer;line-height:1.2}
+#replay:hover{filter:brightness(1.08)}
+@media (max-width:520px){#time{display:none}.controls{gap:10px;padding-inline:12px}.caption{padding:14px 16px}}
+
+/* render mode (used to capture the MP4): stage fills the frame, captions sit on top of the picture */
+html.render body{padding:0;overflow:hidden}
+html.render .wrap{max-width:none;gap:0}
+html.render header,html.render .hint,html.render .controls,html.render #endcard{display:none}
+html.render body{background:#000}
+html.render .wrap{padding-top:109px}
+html.render .player{border-radius:0;box-shadow:none;position:relative;background:#000}
+html.render .caption{height:110px;min-height:0;padding:0 60px}
+html.render .caption p{font-size:33px;font-weight:700}
+
+/* ---- stage scenery ---- */
+.sg{display:none}
+.sg.on,.sg.fading{display:inline}
+.sg.on{animation:fadein .6s both}
+.sg.fading{animation:fadeout .6s both}
+#stage.paused *{animation-play-state:paused!important}
+svg text{font-family:var(--display);font-weight:800}
+
+.cloud{animation:drift 80s linear infinite}
+
+
+#cam{transform-origin:0 0;transition:transform 2.3s cubic-bezier(.45,0,.2,1)}
+
+.bob{animation:bob .42s ease-in-out infinite}
+.bob8{animation:bob .42s ease-in-out 8}
+.hop{animation:hop .6s ease-in-out infinite}
+.breath{animation:breath 3.6s ease-in-out infinite}
+.eyes{transform-box:fill-box;transform-origin:center;animation:blink 4.2s infinite}
+.note{animation:noteUp 1.6s ease-out infinite}
+.palmtop{transform-origin:0 -100px;animation:sway 4s ease-in-out infinite}
+.ring{transform-box:fill-box;transform-origin:center;animation:ring 1.3s ease-out infinite}
+.puff{transform-box:fill-box;transform-origin:center;animation:dust 3.4s ease-out both}
+.popb{transform-box:fill-box;transform-origin:center bottom;animation:pop .6s cubic-bezier(.3,1.6,.5,1) both}
+.popc{transform-box:fill-box;transform-origin:center;animation:pop .6s cubic-bezier(.3,1.6,.5,1) both}
+.twinkle{transform-box:fill-box;transform-origin:center;animation:twinkle 1.4s ease-in-out infinite}
+.beam{animation:pulse 2.6s ease-in-out infinite}
+.walkin{animation:walkin 3.2s ease-out both}
+.floaty{animation:floaty 3s ease-in infinite}
+.rb{stroke-dasharray:1;stroke-dashoffset:1;animation:draw 1.2s ease-out forwards}
+
+
+
+svg text.cz{font-family:'Cinzel','Trajan Pro','Times New Roman',serif;font-weight:800;letter-spacing:.06em}
+.rays2{opacity:.55;animation:raysway 14s ease-in-out infinite alternate}
+.mote{animation:mote 14s linear infinite}
+#dolly{transform-origin:400px 260px}
+@keyframes raysway{from{transform:rotate(-4deg)}to{transform:rotate(4deg)}}
+@keyframes mote{0%{transform:translate(0,0);opacity:0}15%{opacity:.85}100%{transform:translate(var(--mx),-110px);opacity:0}}
+@keyframes flash{0%{opacity:.95}100%{opacity:0}}
+@keyframes fadeLoc{0%{opacity:0;transform:translateX(-24px)}12%{opacity:1;transform:none}80%{opacity:1}100%{opacity:0}}
+
+#sun{transform:translate(650px,90px);transition:transform 2.4s ease}
+[data-scene="10"] #sun{transform:translate(560px,170px)}
+.flashr{opacity:0}
+[data-scene="0"]{--sky1:#78c4fb;--sky2:#eaf7ff;--grade:rgba(255,210,130,.08)}
+[data-scene="1"]{--sky1:#78c4fb;--sky2:#eaf7ff;--grade:rgba(255,210,130,.06)}
+[data-scene="2"]{--sky1:#a3bfd9;--sky2:#e8eef2;--grade:rgba(90,110,150,.18)}
+[data-scene="3"]{--sky1:#8b9cb6;--sky2:#d9d2cc;--grade:rgba(70,60,90,.28)}
+[data-scene="4"]{--sky1:#9fcbe8;--sky2:#f1e8d6;--grade:rgba(255,205,140,.1)}
+[data-scene="5"]{--grade:rgba(255,150,70,.22)}
+[data-scene="6"]{--sky1:#8fd0f0;--sky2:#eef6ea;--grade:rgba(120,200,160,.1)}
+[data-scene="7"]{--sky1:#ffcf8a;--sky2:#fff1cf;--grade:rgba(255,170,70,.2)}
+[data-scene="8"]{--sky1:#ffbf7a;--sky2:#ffe8c4;--grade:rgba(255,150,60,.22)}
+[data-scene="9"]{--sky1:#8fd8ff;--sky2:#fff2cf;--grade:rgba(255,215,130,.14)}
+[data-scene="10"]{--sky1:#ff9a68;--sky2:#ffe3a6;--grade:rgba(255,150,80,.2)}
+[data-scene="3"] #shake{animation:shake3 .55s linear infinite}
+[data-scene="8"][data-beat="3"] #shake{animation:shake2 .1s linear 16}
+[data-scene="8"][data-beat="3"] .flashr{animation:flash 1.2s ease-out both}
+#dolly{transform-origin:400px 260px}
+[data-scene="0"] #dolly{transform-origin:590px 300px;animation:dz0 8s ease-in-out both}
+[data-scene="1"] #dolly{transform-origin:450px 300px;animation:dz1 16s ease-in-out both}
+[data-scene="2"] #dolly{transform-origin:400px 260px;animation:dz2 16s ease-out both}
+[data-scene="3"] #dolly{transform-origin:620px 260px;animation:dz3 18s ease-in both}
+[data-scene="4"] #dolly{transform-origin:300px 300px;animation:dz4 14s linear both}
+[data-scene="5"] #dolly{transform-origin:500px 300px;animation:dz5 16s ease-in-out both}
+[data-scene="6"] #dolly{transform-origin:300px 380px;animation:dz6 14s ease-in-out both}
+[data-scene="7"] #dolly{transform-origin:400px 300px;animation:dz7 18s linear both}
+[data-scene="8"] #dolly{transform-origin:450px 300px;animation:dz8 14s ease-in both}
+[data-scene="9"] #dolly{transform-origin:400px 300px;animation:dz9 14s ease-out both}
+[data-scene="10"] #dolly{transform-origin:400px 320px;animation:dz10 16s ease-out both}
+@keyframes dz0{from{transform:scale(1.02)}to{transform:scale(1.14)}}
+@keyframes dz1{from{transform:scale(1.06) translateX(26px)}to{transform:scale(1.16) translateX(-26px)}}
+@keyframes dz2{from{transform:scale(1.25)}to{transform:scale(1)}}
+@keyframes dz3{from{transform:scale(1)}to{transform:scale(1.2)}}
+@keyframes dz4{from{transform:scale(1.05) translateX(10px)}to{transform:scale(1.15) translateX(-10px)}}
+@keyframes dz5{from{transform:scale(1)}to{transform:scale(1.15)}}
+@keyframes dz6{from{transform:scale(1.14)}to{transform:scale(1)}}
+@keyframes dz7{from{transform:scale(1)}to{transform:scale(1.18)}}
+@keyframes dz8{from{transform:scale(1)}to{transform:scale(1.14)}}
+@keyframes dz9{from{transform:scale(1.2)}to{transform:scale(1)}}
+@keyframes dz10{from{transform:scale(1.25)}to{transform:scale(1)}}
+.shiv{animation:shiv .14s linear infinite}
+.wobble{animation:wobble 1.3s ease-in-out infinite}
+.sheepb{animation:bob 2.6s ease-in-out infinite}
+.grazeh{animation:graze 3.2s ease-in-out infinite}
+.slingspin{animation:spinS .28s linear infinite}
+[data-scene="8"]:not([data-beat="0"]) .slingspin{display:none}
+.strings{animation:pulse .35s ease-in-out infinite}
+.flag{animation:flagw 2s ease-in-out infinite}
+.rip{animation:ripple 3s ease-in-out infinite}
+.lamp{animation:pulse 2.4s ease-in-out infinite}
+.m5a{display:inline}.m5b{display:none}
+[data-scene="5"][data-beat="1"] .m5a{display:none}
+[data-scene="5"][data-beat="1"] .m5b{display:inline}
+.stone,.impact,.dust8{display:none}
+[data-scene="8"][data-beat="1"] .stone{display:inline;animation:stoneFly .75s linear both}
+[data-scene="8"][data-beat="2"] .impact{display:inline}
+[data-scene="8"][data-beat="3"] .dust8{display:inline}
+@keyframes shake3{0%,100%{transform:translate(0,0)}50%{transform:translate(0,1.6px)}}
+@keyframes shiv{0%,100%{transform:translateX(-1.2px)}50%{transform:translateX(1.2px)}}
+@keyframes wobble{0%,100%{transform:rotate(-2.2deg)}50%{transform:rotate(2.2deg)}}
+@keyframes graze{0%,100%{transform:rotate(0)}50%{transform:rotate(18deg)}}
+@keyframes spinS{to{transform:rotate(360deg)}}
+@keyframes flagw{0%,100%{transform:skewY(-6deg)}50%{transform:skewY(6deg)}}
+@keyframes ripple{0%,100%{transform:translateX(0);opacity:.55}50%{transform:translateX(14px);opacity:.25}}
+@keyframes stoneFly{0%{transform:translate(0,0)}50%{transform:translate(171px,-70px)}100%{transform:translate(342px,-58px)}}
+@keyframes topple{0%{transform:rotate(0)}65%{transform:rotate(-88deg)}82%{transform:rotate(-84deg)}100%{transform:rotate(-87deg)}}
+@keyframes gStep{from{transform:translateX(0)}to{transform:translateX(-60px)}}
+@keyframes dRun{from{transform:translateX(0)}to{transform:translateX(150px)}}
+@keyframes flee{from{transform:translateX(0)}to{transform:translateX(620px)}}
+@keyframes charge{from{transform:translateX(-30px)}to{transform:translateX(60px)}}
+@keyframes capIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+@keyframes fadeout{from{opacity:1}to{opacity:0}}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@keyframes hop{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
+@keyframes breath{0%,100%{transform:scale(1,1)}50%{transform:scale(1.006,1.012)}}
+@keyframes waveU{0%,100%{transform:rotate(-140deg)}50%{transform:rotate(-158deg)}}
+@keyframes waveF{0%,100%{transform:rotate(-14deg)}50%{transform:rotate(-52deg)}}
+@keyframes cheerLU{0%,100%{transform:rotate(146deg)}50%{transform:rotate(164deg)}}
+@keyframes cheerLF{0%,100%{transform:rotate(10deg)}50%{transform:rotate(32deg)}}
+@keyframes cheerRU{0%,100%{transform:rotate(-146deg)}50%{transform:rotate(-164deg)}}
+@keyframes cheerRF{0%,100%{transform:rotate(-10deg)}50%{transform:rotate(-32deg)}}
+@keyframes swingA{0%,100%{transform:rotate(16deg)}50%{transform:rotate(-16deg)}}
+@keyframes swingB{0%,100%{transform:rotate(-16deg)}50%{transform:rotate(16deg)}}
+@keyframes step{0%{transform:translate(5px,0)}25%{transform:translate(0,-3px)}50%{transform:translate(-5px,0)}100%{transform:translate(5px,0)}}
+@keyframes blink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}
+@keyframes drift{from{transform:translateX(-220px)}to{transform:translateX(1000px)}}
+@keyframes sunspin{to{transform:rotate(360deg)}}
+@keyframes sway{0%,100%{transform:rotate(-2.5deg)}50%{transform:rotate(2.5deg)}}
+@keyframes pop{0%{transform:scale(0)}70%{transform:scale(1.15)}100%{transform:scale(1)}}
+@keyframes drop{0%{transform:translateY(-160px);opacity:0}60%{transform:translateY(12px);opacity:1}100%{transform:translateY(0);opacity:1}}
+@keyframes shake{0%,100%{transform:translate(0,0)}25%{transform:translate(-3px,1px)}50%{transform:translate(3px,-1px)}75%{transform:translate(-2px,-1px)}}
+@keyframes shake2{0%,100%{transform:translate(0,0)}25%{transform:translate(-4px,2px)}50%{transform:translate(4px,-2px)}75%{transform:translate(-3px,-1px)}}
+@keyframes ring{0%{transform:scale(.3);opacity:.95}100%{transform:scale(3.4);opacity:0}}
+@keyframes noteUp{0%{transform:translate(0,0);opacity:0}15%{opacity:1}100%{transform:translate(10px,-42px);opacity:0}}
+@keyframes dust{0%{transform:scale(.2);opacity:0}20%{opacity:.95}100%{transform:scale(2.8) translateY(-14px);opacity:0}}
+@keyframes twinkle{0%,100%{transform:scale(.6);opacity:.4}50%{transform:scale(1.25);opacity:1}}
+@keyframes pulse{0%,100%{opacity:.45}50%{opacity:.9}}
+@keyframes peek{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes walkin{from{transform:translateX(-360px)}to{transform:translateX(0)}}
+@keyframes floaty{0%{transform:translateY(0);opacity:0}15%{opacity:1}100%{transform:translateY(-70px);opacity:0}}
+@keyframes draw{to{stroke-dashoffset:0}}
+@media (prefers-reduced-motion:reduce){#shake,.cloud,#sun .rays{animation:none!important}}
+</style>
+
+<main class="wrap">
+  <header>
+    <p class="eyebrow">Historia bíblica para niños · 1 Samuel 17</p>
+    <h1>David y Goliat</h1>
+  </header>
+
+  <section class="player" aria-label="Historia animada">
+    <div class="screen">
+      <svg id="stage" viewBox="0 0 800 450" role="img" aria-label="Dibujos animados de David y Goliat" data-scene="0" data-beat="0">
+        <defs>
+          <linearGradient id="skyG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--sky1)"/><stop offset="1" style="stop-color:var(--sky2)"/></linearGradient>
+          <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe27a"/><stop offset="1" stop-color="#d79a22"/></linearGradient>
+          <linearGradient id="beamG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff7c2" stop-opacity=".95"/><stop offset="1" stop-color="#fff7c2" stop-opacity="0"/></linearGradient>
+          <radialGradient id="glowG"><stop offset="0" stop-color="#ffe27a" stop-opacity=".95"/><stop offset="1" stop-color="#ffe27a" stop-opacity="0"/></radialGradient>
+          <radialGradient id="faceShade" cx=".38" cy=".32" r=".8"><stop offset="0" stop-color="#fff" stop-opacity=".24"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#3a1500" stop-opacity=".34"/></radialGradient>
+          <linearGradient id="robeShade" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity=".18"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".34"/></linearGradient>
+          <linearGradient id="hemShade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".28"/></linearGradient>
+          <linearGradient id="staffG" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#a9743a"/><stop offset="1" stop-color="#6a4118"/></linearGradient>
+          <linearGradient id="hornG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e2b261"/><stop offset="1" stop-color="#7f531c"/></linearGradient>
+          <linearGradient id="sandG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6dca2"/><stop offset="1" stop-color="#e0b878"/></linearGradient>
+          <linearGradient id="st0" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f0d09a"/><stop offset="1" stop-color="#d8b178"/></linearGradient>
+          <linearGradient id="st1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e8c58a"/><stop offset="1" stop-color="#cf9f66"/></linearGradient>
+          <linearGradient id="st2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#edcb92"/><stop offset="1" stop-color="#d5a96f"/></linearGradient>
+          <linearGradient id="st3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e2bb7e"/><stop offset="1" stop-color="#c79860"/></linearGradient>
+          <radialGradient id="vigG" cx=".5" cy=".5" r=".75"><stop offset=".55" stop-color="#120a22" stop-opacity="0"/><stop offset="1" stop-color="#120a22" stop-opacity=".55"/></radialGradient>
+          <radialGradient id="sunG"><stop offset="0" stop-color="#fffbe6"/><stop offset=".6" stop-color="#ffe9a0"/><stop offset="1" stop-color="#ffc94a"/></radialGradient>
+          <linearGradient id="rayG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".3"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+          <linearGradient id="goldT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff6cf"/><stop offset=".5" stop-color="#f2c75a"/><stop offset="1" stop-color="#b9821f"/></linearGradient>
+          <linearGradient id="bronze" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f0cf7a"/><stop offset=".5" stop-color="#c58f2e"/><stop offset="1" stop-color="#7a4f14"/></linearGradient>
+          <pattern id="scalesP" width="6" height="5" patternUnits="userSpaceOnUse"><path d="M0 5 Q3 -1 6 5" stroke="rgba(60,30,0,.4)" fill="none" stroke-width=".7"/></pattern>
+          <linearGradient id="grassG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#79bb62"/><stop offset="1" stop-color="#4a8f4a"/></linearGradient>
+          <linearGradient id="dirtG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d4bc86"/><stop offset="1" stop-color="#a98d56"/></linearGradient>
+          <linearGradient id="tentG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7a2a2d"/><stop offset="1" stop-color="#3a1317"/></linearGradient>
+          <linearGradient id="waterG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9bd3ea"/><stop offset="1" stop-color="#5a9fc4"/></linearGradient>
+        </defs>
+
+        <rect width="800" height="450" fill="url(#skyG)"/>
+
+        <g id="sun">
+          <g class="rays2" id="rays2"></g>
+          <circle r="150" fill="url(#glowG)" opacity=".55"/>
+          <circle r="30" fill="url(#sunG)"/>
+          <ellipse rx="190" ry="2.2" fill="#fff" opacity=".35"/>
+          <ellipse rx="70" ry="1.2" fill="#fff" opacity=".6"/>
+        </g>
+
+        <g id="clouds" fill="#fff" opacity=".92">
+          <g class="cloud" style="animation-delay:-18s"><g transform="translate(0 70)"><circle cx="0" cy="0" r="20"/><circle cx="24" cy="-10" r="26"/><circle cx="52" cy="0" r="20"/><rect x="-8" y="0" width="70" height="20" rx="10"/></g></g>
+          <g class="cloud" style="animation-delay:-48s;animation-duration:100s"><g transform="translate(0 130) scale(.8)"><circle cx="0" cy="0" r="20"/><circle cx="24" cy="-10" r="26"/><circle cx="52" cy="0" r="20"/><rect x="-8" y="0" width="70" height="20" rx="10"/></g></g>
+          <g class="cloud" style="animation-delay:-70s;animation-duration:90s"><g transform="translate(0 40) scale(.65)"><circle cx="0" cy="0" r="20"/><circle cx="24" cy="-10" r="26"/><circle cx="52" cy="0" r="20"/><rect x="-8" y="0" width="70" height="20" rx="10"/></g></g>
+        </g>
+
+        <g id="shake"><g transform="translate(0 -52)"><g id="dolly"><g id="cam">
+          <path d="M0 238 Q120 188 260 228 T520 214 T800 198 V430 H0Z" fill="#b7c7ad"/>
+          <g id="pasture" class="sg" data-s="0 1 10">
+            <path d="M0 300 Q200 246 420 298 T800 286 V430 H0Z" fill="#8fc27f"/>
+            <path d="M0 330 Q160 296 340 326 T800 316 V450 H0Z" fill="#79b768"/>
+            <path d="M0 346 H800 V520 H0Z" fill="url(#grassG)"/>
+            <g id="flowers"></g>
+            <g id="olives"></g>
+          </g>
+          <g id="valley" class="sg" data-s="2 3 4 6 7 8 9">
+            <path d="M0 300 Q200 260 420 300 T800 290 V430 H0Z" fill="#c9bc8c"/>
+            <path d="M0 168 Q110 190 230 270 Q290 322 350 346 L0 346Z" fill="#b39a58"/>
+            <path d="M800 160 Q690 190 570 270 Q510 322 450 346 L800 346Z" fill="#a98f54"/>
+            <path d="M0 346 H800 V520 H0Z" fill="url(#dirtG)"/>
+            <path d="M-20 398 Q200 374 420 402 T820 394 V426 Q600 436 420 426 T-20 424Z" fill="url(#waterG)"/>
+            <g id="ripples" fill="none" stroke="#fff" stroke-width="1.6"></g>
+            <g id="rocks"></g>
+            <g id="camps"></g>
+          </g>
+          <g id="tent" class="sg" data-s="5"></g>
+          <g id="armyL" class="sg" data-s="2 3 4 7 8 9"></g>
+          <g id="armyR" class="sg" data-s="2 3 4 7 8"></g>
+          <g id="dust8" class="sg" data-s="8"></g>
+          <g id="g0" class="sg" data-s="0"></g>
+          <g id="g1" class="sg" data-s="1"></g>
+          <g id="g2" class="sg" data-s="2"></g>
+          <g id="g3" class="sg" data-s="3"></g>
+          <g id="g4" class="sg" data-s="4"></g>
+          <g id="g5" class="sg" data-s="5"></g>
+          <g id="g6" class="sg" data-s="6"></g>
+          <g id="g7" class="sg" data-s="7"></g>
+          <g id="g8" class="sg" data-s="8"></g>
+          <g id="g9" class="sg" data-s="9"></g>
+          <g id="g10" class="sg" data-s="10"></g>
+        </g></g></g></g>
+
+        <!-- HUD layer, never zoomed -->
+        <g id="h0" class="sg" data-s="0"></g>
+        <g id="h1" class="sg" data-s="1"></g>
+        <g id="h2" class="sg" data-s="2"></g>
+        <g id="h3" class="sg" data-s="3"></g>
+        <g id="h4" class="sg" data-s="4"></g>
+        <g id="h6" class="sg" data-s="6"></g>
+        <g id="h10" class="sg" data-s="10"></g>
+        <rect width="800" height="450" style="fill:var(--grade)" pointer-events="none"/>
+        <g id="motes" pointer-events="none"></g>
+        <rect class="flashr" width="800" height="450" fill="#fff" pointer-events="none"/>
+        <rect width="800" height="450" fill="url(#vigG)" pointer-events="none"/>
+      </svg>
+      <div id="endcard" hidden><button id="replay" type="button">Ver otra vez</button></div>
+    </div>
+
+    <div class="caption"><p id="capText"></p></div>
+
+    <div class="controls">
+      <button id="play" type="button" aria-label="Pausa"></button>
+      <div class="segs" id="segs" role="group" aria-label="Ir a una escena"></div>
+      <span id="time">0:00 / 0:00</span>
+    </div>
+  </section>
+  <p class="hint">Toca una barra para ir a cualquier escena. La barra espaciadora pausa y reproduce. Las flechas izquierda y derecha cambian de escena.</p>
+</main>
+
+<script>
+(function(){
+  if(location.hash==='#render')document.documentElement.classList.add('render');
+
+  /* ---------- story script ---------- */
+  var S=[
+    {n:'Título',d:8,c:[[0,'Una historia bíblica para niños: David y Goliat.']]},
+    {n:'El pastor',d:16,c:[[0,'David era un joven pastor de Belén. Cuidaba las ovejas de su padre con mucho amor.'],[8,'Era el más pequeño de sus hermanos, pero tenía un corazón valiente que confiaba en Dios.']]},
+    {n:'El valle',d:16,c:[[0,'Mientras tanto, el ejército de Israel estaba en guerra contra los filisteos.'],[7,'Los dos ejércitos acampaban en lados opuestos de un valle, sin atreverse a cruzar.']]},
+    {n:'Goliat',d:18,c:[[0,'Cada mañana, un gigante llamado Goliat salía a gritar: «¡Escojan a un hombre para pelear conmigo!»'],[8,'Medía casi tres metros, y todos los soldados de Israel temblaban de miedo, incluso el rey Saúl.']]},
+    {n:'David llega',d:14,c:[[0,'Un día, David llevó pan y queso a sus hermanos en el campamento.'],[6,'Oyó los gritos de Goliat y dijo: «¿Quién es este para desafiar al ejército del Dios viviente?»']]},
+    {n:'El rey Saúl',d:16,b:[10.5],c:[[0,'David le dijo al rey Saúl: «Yo iré a pelear contra el gigante.»'],[5.5,'Saúl le dio su armadura, pero era demasiado grande y pesada. «No puedo andar con esto», dijo David.']]},
+    {n:'Cinco piedras',d:14,b:[5,6.2,7.4,8.6,9.8],c:[[0,'David dejó la armadura y tomó su cayado y su honda.'],[4.5,'Del arroyo escogió cinco piedras lisas y las guardó en su bolsa de pastor.']]},
+    {n:'Cara a cara',d:18,c:[[0,'Goliat se rió de él: «¿Soy yo un perro para que vengas con palos?»'],[7,'Pero David respondió: «Tú vienes con espada y lanza; yo vengo en el nombre del Señor.»'],[15,'¡Y corrió hacia el gigante!']]},
+    {n:'La honda',d:14,b:[6,6.75,8.1],c:[[0,'David puso una piedra en su honda y la hizo girar... ¡zas!'],[6,'La piedra voló por el aire, golpeó a Goliat en la frente, ¡y el gigante cayó al suelo!']]},
+    {n:'Victoria',d:14,c:[[0,'Los filisteos vieron caer a su campeón y salieron corriendo.'],[6,'¡Israel ganó la batalla! Pero David sabía que la victoria era de Dios.']]},
+    {n:'Fin',d:16,c:[[0,'David nos enseña que, con Dios a nuestro lado, ningún gigante es demasiado grande.'],[8,'«La batalla es del Señor.» 1 Samuel 17:47']]}
+  ];
+  var TOTAL=S.reduce(function(a,s){return a+s.d},0);
+
+  /* ---------- characters: realistic proportions (about 7.5 heads tall), shaded skin and cloth ---------- */
+  var SKINS=['#d8a173','#c48658','#a96b40','#8a5231'];
+  var ROBES=['#b5523b','#3f7a6e','#c98a3c','#6b5ca5','#b8a05a','#3d7fa8','#a8403f','#5b7f4a'];
+  var WRAPS=['#efe7d4','#d9c9a3','#c9b48a','#e9dcc0'];
+  var JOSH={robe:'#2f6f9f',mantle:'#e6d9bd',hair:'#3a2616',beard:1,band:1,skin:SKINS[1]};
+  var MOSES={robe:'#6b4f35',mantle:'#efe7d4',gray:1,beard:1,wrap:'#efe7d4',skin:SKINS[1],sleeves:'long',staff:1};
+  var PRIEST={robe:'#f6f1e6',plate:1,hat:1,sleeves:'long',trim:'#c8932a',belt:'#2c5aa0'};
+  function folk(i){return {robe:ROBES[i%8],skin:SKINS[i%4],wrap:(i%2?WRAPS[i%4]:null),beard:(i%3===0?1:0),hair:(i%3===2?'#4a3020':'#241610')}}
+  function mix(){var r={};for(var i=0;i<arguments.length;i++)Object.assign(r,arguments[i]);return r}
+
+  function person(o){
+    o=Object.assign({robe:'#4a7bd1',skin:SKINS[0],hair:'#241610',mood:'happy',arms:'down',cd:0,d:0,belt:'#6f4524',sleeves:'short',walk:false},o);
+    var hc=o.gray?'#d6d6dc':o.hair,sk=o.skin,dl=o.cd+o.d,rb=o.robe;
+    var it=(typeof o.walk==='number')?o.walk:'infinite';
+    function A(n,dur){return 'animation:'+n+' '+dur+'s ease-in-out '+dl+'s infinite'}
+    function Rt(deg){return 'transform:rotate('+deg+'deg)'}
+    var LU=Rt(6),LF=Rt(5),RU=Rt(-6),RF=Rt(-5),ar=o.arms;
+    if(o.staff){LU=Rt(10);LF=Rt(12)}
+    if(o.spear){RU=Rt(-10);RF=Rt(-12)}
+    if(ar==='wave'){RU=A('waveU',.9);RF=A('waveF',.9)}
+    else if(ar==='cheer'){LU=A('cheerLU',.5);LF=A('cheerLF',.5);RU=A('cheerRU',.5);RF=A('cheerRF',.5)}
+    else if(ar==='horn'){RU=Rt(-150);RF=Rt(-136)}
+    else if(ar==='lup'){LU=A('cheerLU',.5);LF=A('cheerLF',.5)}
+    else if(ar==='bend'){RU=Rt(-30);RF=Rt(-50)}
+    if(o.walk){
+      var wk='animation-duration:.84s;animation-timing-function:ease-in-out;animation-iteration-count:'+it+';animation-delay:'+dl+'s;';
+      if(!o.staff)LU='animation-name:swingA;'+wk;
+      if(ar==='down')RU='animation-name:swingB;'+wk;
+    }
+    var long=o.sleeves==='long';
+    var slingSvg='';
+    if(o.sling==='swing')slingSvg='<g transform="translate(0 37)"><g class="slingspin"><path d="M0 0 L0 24" stroke="#d9bd86" stroke-width="1.4"/><ellipse cx="0" cy="25" rx="3.2" ry="2.2" fill="#7a4d22"/></g></g>';
+    else if(o.sling)slingSvg='<g transform="translate(0 37)"><path d="M0 0 Q2 10 1 20" stroke="#d9bd86" stroke-width="1.4" fill="none"/><ellipse cx="1" cy="21" rx="3.2" ry="2.2" fill="#7a4d22"/></g>';
+    function arm(side,U,F){
+      var up='M-6.4 -3.5 Q-8.2 13 -6 28 L6 28 Q8.2 13 6.4 -3.5 Q0 -7.5 -6.4 -3.5Z';
+      var fo=long?'M-6 0 Q-7.4 13 -6.4 27 L6.4 27 Q7.4 13 6 0Z':'M-4.2 0 Q-5 13 -3.8 26 L3.8 26 Q5 13 4.2 0Z';
+      var s='<g transform="translate('+(side*21)+' -125)"><g style="'+U+'"><path d="'+up+'" fill="'+rb+'"/><path d="'+up+'" fill="url(#robeShade)"/>';
+      s+='<g transform="translate(0 28)"><g style="'+F+'"><path d="'+fo+'" fill="'+(long?rb:sk)+'"/>'+(long?'<path d="'+fo+'" fill="url(#robeShade)"/>':'');
+      s+='<path d="M-3.8 25 Q-5.4 32 -3.4 37 Q0 39 3.4 37 Q5.4 32 3.8 25Z" fill="'+sk+'"/><ellipse cx="'+(side>0?-4.4:4.4)+'" cy="29" rx="1.6" ry="3.3" fill="'+sk+'"/>'+(side>0?slingSvg:'')+'</g></g></g></g>';
+      return s;
+    }
+    var s='<ellipse cx="0" cy="2" rx="26" ry="5" fill="rgba(40,20,0,.2)"/>';
+    if(o.staff)s+='<rect x="-39.5" y="-166" width="5" height="168" rx="2.5" fill="url(#staffG)"/><circle cx="-37" cy="-168" r="4.5" fill="#7a4d22"/>';
+    // legs and sandals
+    var fa=o.walk?'animation:step .84s linear '+dl+'s '+it:'',fb=o.walk?'animation:step .84s linear '+(dl-.42)+'s '+it:'';
+    var lgy=o.short?-46:-16,lgh=o.short?44:14;
+    s+='<rect x="-11" y="'+lgy+'" width="6.5" height="'+lgh+'" rx="3" fill="'+sk+'"/><rect x="4.5" y="'+lgy+'" width="6.5" height="'+lgh+'" rx="3" fill="'+sk+'"/>';
+    s+='<g style="'+fa+'"><ellipse cx="-8" cy="-2.5" rx="8" ry="3.4" fill="#5e3f26"/><path d="M-13 -4 Q-8 -8 -3 -4" stroke="#c9a46a" stroke-width="1.2" fill="none"/></g>';
+    s+='<g style="'+fb+'"><ellipse cx="8" cy="-2.5" rx="8" ry="3.4" fill="#5e3f26"/><path d="M3 -4 Q8 -8 13 -4" stroke="#c9a46a" stroke-width="1.2" fill="none"/></g>';
+    if(o.greaves)s+='<path d="M-11.5 -34 L-4 -34 L-4.5 -6 L-11 -6Z M4 -34 L11.5 -34 L11 -6 L4.5 -6Z" fill="url(#bronze)" stroke="#6b4415" stroke-width=".7"/>';
+    // tunic
+    var body=o.short?'M-21 -127 Q-23 -118 -19 -100 Q-17 -90 -19 -80 Q-22 -60 -23 -44 Q0 -38 23 -44 Q22 -60 19 -80 Q17 -90 19 -100 Q23 -118 21 -127 Q10 -132 0 -131 Q-10 -132 -21 -127Z':'M-21 -127 Q-23 -118 -19 -100 Q-17 -90 -19 -80 Q-26 -40 -26 -10 Q0 -3 26 -10 Q26 -40 19 -80 Q17 -90 19 -100 Q23 -118 21 -127 Q10 -132 0 -131 Q-10 -132 -21 -127Z';
+    s+='<path d="'+body+'" fill="'+rb+'"/><path d="'+body+'" fill="url(#robeShade)"/><path d="'+body+'" fill="url(#hemShade)"/>';
+    s+=o.short?'<path d="M-6 -88 Q-8 -64 -9 -46 M5 -88 Q7 -64 9 -46" stroke="rgba(0,0,0,.16)" stroke-width="1.6" fill="none"/>':'<path d="M-6 -88 Q-9 -50 -12 -12 M5 -88 Q8 -50 11 -12 M-15 -84 Q-21 -50 -23 -14 M15 -84 Q20 -50 22 -14" stroke="rgba(0,0,0,.16)" stroke-width="1.6" fill="none"/>';
+    s+='<path d="M0 -86 Q1 -50 0 -12" stroke="rgba(255,255,255,.14)" stroke-width="2" fill="none"/><path d="M21 -127 Q23 -118 19 -100 Q17 -90 19 -80 Q26 -40 26 -10" stroke="rgba(255,236,190,.42)" stroke-width="1.6" fill="none"/>';
+    if(o.trim)s+='<path d="M-25.6 -14 Q0 -7 25.6 -14" stroke="'+o.trim+'" stroke-width="3" fill="none"/>';
+    s+='<path d="M-5.5 -131.5 L0 -119 L5.5 -131.5Z" fill="'+sk+'"/><path d="M-5.5 -131.5 L0 -119 L5.5 -131.5Z" fill="rgba(0,0,0,.14)"/>';
+    s+='<path d="M-19.5 -101 Q0 -95 19.5 -101 L19.8 -95.5 Q0 -89.5 -19.8 -95.5Z" fill="'+o.belt+'"/><rect x="-2.6" y="-99.5" width="5.2" height="5" rx="1" fill="url(#gold)"/>';
+    if(o.armor){
+      var ap='M-19.5 -126 Q-22 -108 -18 -92 Q0 -87 18 -92 Q22 -108 19.5 -126 Q10 -131 0 -130 Q-10 -131 -19.5 -126Z';
+      s+='<path d="'+ap+'" fill="url(#bronze)" stroke="#6b4415" stroke-width="1"/><path d="'+ap+'" fill="url(#scalesP)"/><path d="'+ap+'" fill="url(#robeShade)"/>';
+      s+='<ellipse cx="-21" cy="-124" rx="8" ry="5.5" fill="url(#bronze)" stroke="#6b4415" stroke-width=".8"/><ellipse cx="21" cy="-124" rx="8" ry="5.5" fill="url(#bronze)" stroke="#6b4415" stroke-width=".8"/>';
+      for(var q2=0;q2<7;q2++)s+='<rect x="'+(-17.5+q2*5.2)+'" y="-92" width="4.6" height="'+(o.short?15:12)+'" rx="1.5" fill="#6f4524" stroke="#3f2a1c" stroke-width=".5"/><rect x="'+(-17.5+q2*5.2)+'" y="'+(o.short?-79:-82)+'" width="4.6" height="2.2" fill="url(#bronze)"/>';
+    }
+    if(o.pouch)s+='<path d="M-20 -104 Q-30 -92 -27 -80 Q-18 -73 -10 -82 Q-12 -94 -15 -100Z" fill="#6b4630" stroke="#3f2a1c" stroke-width="1"/><path d="M-26 -82 Q-19 -76 -12 -82" stroke="#3f2a1c" stroke-width="1" fill="none"/><path d="M-6 -126 Q-4 -112 -19 -102" stroke="#4a301c" stroke-width="2.2" fill="none"/>';
+    if(o.plate){
+      s+='<rect x="-10.5" y="-124" width="21" height="21" rx="3" fill="url(#gold)" stroke="#9a6d12" stroke-width=".8"/>';
+      ['#d1313b','#2c6fd1','#2fa36b','#7a45b8'].forEach(function(c,i){s+='<circle cx="'+(-5.2+(i%2)*10.4)+'" cy="'+(-118+Math.floor(i/2)*9)+'" r="2.2" fill="'+c+'" stroke="#fff" stroke-width=".5"/>'});
+    }
+    if(o.mantle){
+      var m='M-22 -128 Q-8 -133 6 -128 L26 -92 Q22 -78 14 -70 Q0 -96 -21 -108Z';
+      s+='<path d="'+m+'" fill="'+o.mantle+'"/><path d="'+m+'" fill="url(#robeShade)"/><path d="M-10 -122 Q4 -104 18 -78 M-16 -114 Q0 -98 10 -76" stroke="rgba(0,0,0,.14)" stroke-width="1.4" fill="none"/>';
+    }
+    if(o.spear)s+='<rect x="34.5" y="-172" width="5" height="174" rx="2.5" fill="url(#staffG)"/><path d="M37 -168 L31 -182 L37 -206 L43 -182Z" fill="url(#bronze)" stroke="#6b4415" stroke-width=".8"/>';
+    s+=arm(-1,LU,LF)+arm(1,RU,RF);
+    if(o.shield)s+='<circle cx="-27" cy="-88" r="17" fill="url(#bronze)" stroke="#6b4415" stroke-width="1.6"/><circle cx="-27" cy="-88" r="10" fill="none" stroke="rgba(0,0,0,.25)" stroke-width="1.2"/><circle cx="-27" cy="-88" r="4" fill="#d9a441" stroke="#6b4415" stroke-width=".8"/>';
+    if(o.basket)s+='<g transform="translate(-27 -58)"><path d="M-9 0 Q-11 12 -6 14 L6 14 Q11 12 9 0Z" fill="#a8763c" stroke="#5e3f1c" stroke-width="1"/><ellipse cx="-3" cy="-1" rx="6" ry="3.4" fill="#e3b86a"/><ellipse cx="4" cy="-2" rx="5.5" ry="3" fill="#d9a85a"/><path d="M5 -6 L12 -2 L5 0Z" fill="#f4dc7a"/><path d="M-9 1 Q0 -16 9 1" fill="none" stroke="#5e3f1c" stroke-width="1.6"/></g>';
+    if(o.lyre){
+      s+='<g transform="translate(0 -92)"><path d="M-14 -2 L-16 14 Q-16 26 0 26 Q16 26 16 14 L14 -2" fill="none" stroke="#8a5a2b" stroke-width="3.2" stroke-linecap="round"/><path d="M-15 -2 H15" stroke="#8a5a2b" stroke-width="3.2" stroke-linecap="round"/>';
+      for(var q3=0;q3<5;q3++)s+='<path class="strings" d="M'+(-9+q3*4.5)+' -1 L'+(-9+q3*4.5)+' 22" stroke="#f0d98a" stroke-width=".8" style="animation-delay:'+(q3*.07)+'s"/>';
+      s+='<circle cx="-14" cy="12" r="3.6" fill="'+sk+'"/><circle cx="14" cy="8" r="3.6" fill="'+sk+'"/></g>';
+      s+='<text class="note" x="22" y="-120" font-size="18" fill="#ffd45e" style="animation-delay:'+dl+'s">♪</text><text class="note" x="-30" y="-110" font-size="14" fill="#ffd45e" style="animation-delay:'+(dl+.8)+'s">♫</text>';
+    }
+    // neck
+    s+='<path d="M-3.9 -139 L-3.9 -128 Q0 -125 3.9 -128 L3.9 -139Z" fill="'+sk+'"/><path d="M-3.9 -139 L-3.9 -133 Q0 -130 3.9 -133 L3.9 -139Z" fill="rgba(0,0,0,.2)"/>';
+    // head
+    var h='';
+    if(o.long||o.female)h+='<path d="M-10 -154 Q-15 -128 -10 -108 L10 -108 Q15 -128 10 -154Z" fill="'+hc+'"/>';
+    if(o.female&&o.wrap)h+='<path d="M-11 -156 Q-17 -134 -13 -112 L13 -112 Q17 -134 11 -156Z" fill="'+o.wrap+'"/><path d="M-11 -156 Q-17 -134 -13 -112 L13 -112 Q17 -134 11 -156Z" fill="url(#robeShade)"/>';
+    h+='<ellipse cx="-8.6" cy="-146" rx="1.7" ry="2.7" fill="'+sk+'"/><ellipse cx="8.6" cy="-146" rx="1.7" ry="2.7" fill="'+sk+'"/>';
+    var face='M-8.4 -149 Q-8.6 -136 0 -135 Q8.6 -136 8.4 -149 Q8 -158 0 -158 Q-8 -158 -8.4 -149Z';
+    h+='<path d="'+face+'" fill="'+sk+'"/><path d="'+face+'" fill="url(#faceShade)"/><path d="M8.4 -149 Q8.6 -136 0 -135" stroke="rgba(255,236,190,.5)" stroke-width=".9" fill="none"/>';
+    if(o.beard){
+      var b='M-8.7 -148 Q-9.8 -130 0 -125.5 Q9.8 -130 8.7 -148 Q6.6 -139.6 3.4 -138.6 Q0 -137 -3.4 -138.6 Q-6.6 -139.6 -8.7 -148Z';
+      h+='<path d="'+b+'" fill="'+hc+'"/><path d="M-5 -137 Q-4 -130 -2 -127 M0 -136 L0 -127 M5 -137 Q4 -130 2 -127" stroke="rgba(0,0,0,.2)" stroke-width=".8" fill="none"/>';
+    }
+    h+='<circle cx="-5.6" cy="-141.5" r="2.3" fill="rgba(220,100,90,.18)"/><circle cx="5.6" cy="-141.5" r="2.3" fill="rgba(220,100,90,.18)"/>';
+    h+='<path d="M0.4 -148.5 Q2 -144 2.6 -142.6 Q0 -141.2 -2.6 -142.6 Q-2 -143.6 -0.4 -145Z" fill="rgba(90,45,20,.24)"/>';
+    if(o.mood==='open')h+='<ellipse cx="0" cy="-138.4" rx="2.6" ry="2.9" fill="#5e1f1f"/><ellipse cx="0" cy="-137.3" rx="1.6" ry="1" fill="#c75d5a"/><rect x="-1.9" y="-140.6" width="3.8" height="1.2" rx=".5" fill="#fff"/>';
+    else if(o.mood==='angry')h+='<path d="M-4.4 -140.8 Q0 -133.6 4.4 -140.8Z" fill="#5e1f1f"/><rect x="-3.6" y="-140.8" width="7.2" height="1.6" rx=".6" fill="#fff"/>';
+    else if(o.mood==='worry')h+='<path d="M-2.9 -138.2 Q0 -140 2.9 -138.2" fill="none" stroke="#6e2a26" stroke-width="1" stroke-linecap="round"/>';
+    else h+='<path d="M-3.7 -139.6 Q0 -135.6 3.7 -139.6 Q0 -138.5 -3.7 -139.6Z" fill="#7d2f2a"/><path d="M-2.8 -139.2 Q0 -138.3 2.8 -139.2 L2.4 -138.1 Q0 -137.3 -2.4 -138.1Z" fill="#fff" opacity=".92"/>';
+    h+='<g class="eyes">';
+    [-1,1].forEach(function(sd){var x=sd*3.7;h+='<ellipse cx="'+x+'" cy="-147.2" rx="2.15" ry="1.4" fill="#fbf6ee"/><circle cx="'+x+'" cy="-147.2" r="1.15" fill="#3a2415"/><circle cx="'+(x-.35)+'" cy="-147.6" r=".4" fill="#fff"/><path d="M'+(x-2.3)+' -147.5 Q'+x+' -149.4 '+(x+2.3)+' -147.5" stroke="#2a1a12" stroke-width=".7" fill="none"/>'});
+    h+='</g>';
+    var bw=(o.mood==='angry')?'-153 Q-4 -151.6 -1.2 -149.2':(o.mood==='worry')?'-150 Q-4 -151.6 -1.2 -153':'-151 Q-4 -152.6 -1.2 -151.2';
+    h+='<path d="M-6.6 '+bw+'" stroke="'+hc+'" stroke-width="1.15" fill="none" stroke-linecap="round"/><path d="M6.6 '+bw.replace(/-4 /,'4 ').replace(/-1\.2/g,'1.2')+'" stroke="'+hc+'" stroke-width="1.15" fill="none" stroke-linecap="round"/>';
+    if(o.helmet){
+      var hm='<path d="M-10.8 -150 Q-11.8 -171 0 -171 Q11.8 -171 10.8 -150 L9.6 -142.5 L7.6 -146 Q0 -153 -7.6 -146 L-9.6 -142.5Z" fill="url(#bronze)" stroke="#6b4415" stroke-width=".9"/><path d="M-10.4 -154 Q0 -158.4 10.4 -154" stroke="#6b4415" stroke-width="1.2" fill="none"/><path d="M-1.4 -171 Q-2 -180 8 -179 Q14 -178 11.5 -172 Q6 -173 3 -170Z" fill="'+(o.crest||'#b3261e')+'"/>';
+      h+=o.helmetBig?'<g transform="translate(0 -142) scale(1.5) translate(0 142)">'+hm+'</g>':hm;
+    }else if(o.hat){
+      h+='<ellipse cx="0" cy="-159" rx="10.8" ry="6.6" fill="#f4efe4"/><path d="M-9 -161 Q0 -166 9 -161 M-10 -158 Q0 -163 10 -158 M-9.4 -155 Q0 -159.5 9.4 -155" stroke="rgba(0,0,0,.14)" stroke-width="1" fill="none"/><ellipse cx="0" cy="-159" rx="10.8" ry="6.6" fill="url(#robeShade)"/><rect x="-3.4" y="-157.4" width="6.8" height="2.8" rx="1" fill="url(#gold)"/>';
+    }else if(o.wrap&&!o.female){
+      var cv='M-10.2 -150 Q-11 -167 0 -167 Q11 -167 10.2 -150 Q9 -157 0 -158.5 Q-9 -157 -10.2 -150Z';
+      h+='<path d="M-10.2 -150 Q-14.5 -138 -12.5 -126 L-8 -129 Q-9 -139 -8.8 -148Z" fill="'+o.wrap+'"/><path d="M10.2 -150 Q14.5 -138 12.5 -126 L8 -129 Q9 -139 8.8 -148Z" fill="'+o.wrap+'"/><path d="'+cv+'" fill="'+o.wrap+'"/><path d="'+cv+'" fill="url(#robeShade)"/><path d="M-9.8 -157 Q0 -160.6 9.8 -157" stroke="#2a1a12" stroke-width="1.7" fill="none"/>';
+    }else if(!o.female||!o.wrap){
+      h+='<path d="M-8.9 -149 Q-10.4 -163 0 -163.6 Q10.4 -163 8.9 -149 Q7 -155.5 3 -156.6 Q0 -154 -3 -156.6 Q-7 -155.5 -8.9 -149Z" fill="'+hc+'"/>';
+      [[-6,-157.5],[-3,-160.6],[0,-161.5],[3,-160.6],[6,-157.5]].forEach(function(p){h+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="2.3" fill="'+hc+'"/>'});
+      if(o.band)h+='<path d="M-9 -155 Q0 -158.4 9 -155" stroke="#d3a02c" stroke-width="1.7" fill="none"/>';
+    }
+    if(o.crown)h+='<path d="M-8.4 -158 L-9 -168 L-4.4 -162.6 L0 -170.5 L4.4 -162.6 L9 -168 L8.4 -158Z" fill="url(#gold)" stroke="#9a6d12" stroke-width=".7"/><circle cx="0" cy="-165" r="1.1" fill="#d1313b"/>';
+    s+=o.kid?'<g transform="translate(0 -146) scale(1.2) translate(0 146)">'+h+'</g>':h;
+    if(o.horn){
+      s+='<path d="M5 -140 Q22 -142 29 -158 Q32 -166.5 26 -166.5 Q23 -166.5 22 -161 Q17 -150 5 -146Z" fill="url(#hornG)" stroke="#6b4415" stroke-width="1"/><ellipse cx="6.5" cy="-143" rx="3.3" ry="4.4" fill="'+sk+'"/>';
+      s+='<text class="note" x="30" y="-168" font-size="20" fill="#ff5c8a" style="animation-delay:'+dl+'s">♪</text>';
+    }
+    return '<g class="'+(o.cls||'')+'" style="'+(o.cls?'animation-delay:'+dl+'s':'')+'">'+s+'</g>';
+  }
+  function at(x,y,sc,o){o=o||{};var k=sc*.625;return '<g transform="translate('+x+' '+y+') scale('+(o.flip?-k:k)+' '+k+')">'+person(o)+'</g>'}
+  function ark(){
+    return '<rect x="-36" y="-9" width="72" height="5" rx="2.5" fill="#8a5a2b"/>'+
+      '<rect x="-22" y="-28" width="44" height="22" rx="3" fill="url(#gold)" stroke="#a7771c" stroke-width="1.5"/>'+
+      '<rect x="-25" y="-34" width="50" height="8" rx="3" fill="#ffd84d" stroke="#a7771c" stroke-width="1.5"/>'+
+      '<path d="M-14 -34 Q-24 -50 -8 -50 Q-4 -42 -3 -34Z" fill="#ffe27a" stroke="#a7771c" stroke-width="1"/>'+
+      '<path d="M14 -34 Q24 -50 8 -50 Q4 -42 3 -34Z" fill="#ffe27a" stroke="#a7771c" stroke-width="1"/>';
+  }
+  function palm(x,y,sc,flip){
+    var leaves='';[-200,-160,-120,-80,-40,0,25].forEach(function(a){
+      leaves+='<ellipse cx="30" cy="0" rx="32" ry="9" fill="#3fae5b" stroke="#2c8a45" stroke-width="1.5" transform="translate(0 -100) rotate('+a+')"/>';
+    });
+    return '<g transform="translate('+x+' '+y+') scale('+(flip?-sc:sc)+' '+sc+')"><path d="M0 0 Q12 -50 0 -100" fill="none" stroke="#8a5a2b" stroke-width="10" stroke-linecap="round"/><g class="palmtop">'+leaves+'<circle cx="-6" cy="-94" r="5" fill="#6b4630"/><circle cx="6" cy="-93" r="5" fill="#6b4630"/></g></g>';
+  }
+  function star(cx,cy,n,ro,ri){
+    var p=[];for(var i=0;i<n*2;i++){var r=i%2?ri:ro,a=Math.PI*i/n-Math.PI/2;p.push((cx+Math.cos(a)*r).toFixed(1)+','+(cy+Math.sin(a)*r).toFixed(1))}
+    return p.join(' ');
+  }
+  function $(id){return document.getElementById(id)}
+
+
+  /* ---------- cast ---------- */
+  var DAV={robe:'#cdb88a',skin:SKINS[0],hair:'#8a3d1e',belt:'#7a4b24',staff:1,sling:1};
+  var GOL={robe:'#5a4a3a',skin:SKINS[1],hair:'#1d130e',beard:1,armor:1,helmet:1,spear:1,greaves:1,short:1,mood:'angry',belt:'#3f2a1c',crest:'#b3261e'};
+  var SAUL={robe:'#6a2c70',mantle:'#d9b44a',skin:SKINS[2],hair:'#1d130e',beard:1,crown:1,sleeves:'long',belt:'#d9b44a'};
+  function isr(i){return {robe:['#6f86b5','#8fa0c4','#7a95b8','#9fb0cf'][i%4],skin:SKINS[(i+1)%4],hair:'#2a1a12',beard:(i%3===0?1:0),short:1,helmet:1,shield:1,spear:1,greaves:1,belt:'#5b4a35'}}
+  function phil(i){return {robe:['#a3463a','#b5523b','#8f3a32'][i%3],skin:SKINS[(i+2)%4],hair:'#1d130e',beard:(i%2),short:1,helmet:1,crest:'#b3261e',shield:1,spear:1,greaves:1,belt:'#3f2a1c'}}
+
+  function sheep(x,y,s,d,flip){
+    var w='';[[-14,-22,10],[-4,-27,11],[8,-26,11],[17,-20,9],[-18,-14,8],[0,-16,12],[12,-14,10]].forEach(function(c){w+='<circle cx="'+c[0]+'" cy="'+c[1]+'" r="'+c[2]+'" fill="#f4f1e8" stroke="#d9d2c0" stroke-width=".8"/>'});
+    return '<g transform="translate('+x+' '+y+') scale('+(flip?-s:s)+' '+s+')"><g class="sheepb" style="animation-delay:-'+d+'s"><ellipse cx="0" cy="1" rx="24" ry="4" fill="rgba(40,30,0,.22)"/>'+
+      '<rect x="-15" y="-13" width="4" height="13" rx="2" fill="#4a4036"/><rect x="-7" y="-13" width="4" height="13" rx="2" fill="#4a4036"/><rect x="6" y="-13" width="4" height="13" rx="2" fill="#4a4036"/><rect x="13" y="-13" width="4" height="13" rx="2" fill="#4a4036"/>'+w+
+      '<ellipse cx="2" cy="-12" rx="16" ry="5" fill="rgba(60,50,30,.12)"/>'+
+      '<g class="grazeh" style="transform-origin:19px -20px;animation-delay:-'+d+'s"><ellipse cx="25" cy="-17" rx="7.5" ry="6" fill="#4a4036"/><ellipse cx="20" cy="-24" rx="3.4" ry="2" fill="#3a322a" transform="rotate(-30 20 -24)"/><circle cx="27" cy="-19" r="1.2" fill="#fff"/><circle cx="27.4" cy="-19" r=".6" fill="#111"/></g></g></g>';
+  }
+  function olive(x,y,s){
+    var f='';[[-22,-86,26,15],[2,-96,28,16],[26,-84,25,14],[-8,-72,24,13],[14,-70,22,12]].forEach(function(c,i){f+='<ellipse cx="'+c[0]+'" cy="'+c[1]+'" rx="'+c[2]+'" ry="'+c[3]+'" fill="'+(i%2?'#97ad7e':'#82996a')+'"/>'});
+    return '<g transform="translate('+x+' '+y+') scale('+s+')"><ellipse cx="0" cy="2" rx="34" ry="6" fill="rgba(30,40,10,.22)"/><path d="M0 0 Q-9 -28 2 -50 Q8 -62 0 -76" stroke="#6f5636" stroke-width="10" fill="none" stroke-linecap="round"/><path d="M2 -50 Q14 -60 22 -72" stroke="#6f5636" stroke-width="6" fill="none" stroke-linecap="round"/>'+f+'</g>';
+  }
+  function tent(x,y,w,h,c){return '<g transform="translate('+x+' '+y+')"><path d="M'+(-w/2)+' 0 L0 '+(-h)+' L'+(w/2)+' 0Z" fill="'+c+'" stroke="rgba(0,0,0,.35)" stroke-width="1.2"/><path d="M'+(-w/2)+' 0 L0 '+(-h)+' L'+(w/2)+' 0Z" fill="url(#robeShade)"/><path d="M0 '+(-h)+' L'+(w*.13)+' 0 L'+(-w*.13)+' 0Z" fill="rgba(0,0,0,.5)"/></g>'}
+  function flag(x,y,c){return '<g transform="translate('+x+' '+y+')"><rect x="-1" y="-46" width="2.4" height="46" fill="#5a3b1c"/><g class="flag" style="transform-origin:1px -44px"><path d="M1 -46 L26 -42 L1 -34Z" fill="'+c+'"/></g></g>'}
+  function army(side,fn){
+    var s='';
+    for(var r=0;r<3;r++)for(var c=0;c<6;c++){
+      var x=side<0?24+c*40+(r%2)*18:800-24-c*40-(r%2)*18,d=side<0?x:800-x,y=178+d*.45+8+r*13;
+      s+=at(x.toFixed(0),y.toFixed(0),.36,mix(fn(r*6+c),{flip:side>0,cls:'breath',d:-(r*.3+c*.15)}));
+    }
+    return s;
+  }
+  function $(id){return document.getElementById(id)}
+
+  /* ---------- shared atmosphere: god rays and floating motes ---------- */
+  var seed2=3;function R0(){seed2=(seed2*1664525+1013904223)%4294967296;return seed2/4294967296}
+  var gr='';[8,20,32,44,58,72].forEach(function(a){gr+='<polygon points="0,0 -'+(18+a/3)+',900 '+(18+a/3)+',900" fill="url(#rayG)" transform="rotate('+a+')"/>'});
+  $('rays2').innerHTML=gr;
+  var mt='';for(var q=0;q<28;q++){mt+='<circle class="mote" cx="'+(R0()*800).toFixed(0)+'" cy="'+(150+R0()*280).toFixed(0)+'" r="'+(1+R0()*2.4).toFixed(1)+'" fill="rgba(255,244,214,.7)" style="--mx:'+((R0()-.3)*90).toFixed(0)+'px;animation-duration:'+(10+R0()*10).toFixed(1)+'s;animation-delay:-'+(R0()*14).toFixed(1)+'s"/>'}
+  $('motes').innerHTML=mt;
+
+  /* ---------- scenery ---------- */
+  var fl='';for(var q2=0;q2<46;q2++){fl+='<circle cx="'+(R0()*800).toFixed(0)+'" cy="'+(352+R0()*86).toFixed(0)+'" r="'+(1.4+R0()*1.6).toFixed(1)+'" fill="'+['#fff6cf','#ffd23f','#ff8fb0','#fff'][q2%4]+'" opacity=".85"/>'}
+  $('flowers').innerHTML=fl;
+  $('olives').innerHTML=olive(250,334,.7)+olive(580,330,.62)+olive(60,380,1.3)+olive(752,376,1.2);
+  var rp='';[[60,408],[190,414],[330,410],[470,418],[610,412],[740,408]].forEach(function(p,i){rp+='<path class="rip" d="M'+p[0]+' '+p[1]+' q22 -6 44 0" style="animation-delay:-'+(i*.5)+'s"/>'});
+  $('ripples').innerHTML=rp;
+  var rk='';[[30,436,16,7],[170,442,22,8],[420,438,14,6],[560,440,20,8],[700,436,18,7],[300,404,10,4],[520,402,12,5]].forEach(function(r2,i){rk+='<ellipse cx="'+r2[0]+'" cy="'+r2[1]+'" rx="'+r2[2]+'" ry="'+r2[3]+'" fill="'+(i%2?'#9a8e7c':'#b2a690')+'" stroke="rgba(60,40,20,.3)"/>'});
+  $('rocks').innerHTML=rk;
+  $('camps').innerHTML=tent(40,184,52,32,'#efe3c6')+tent(118,214,56,34,'#e6d8b6')+tent(196,252,60,36,'#efe3c6')+flag(72,200,'#3d6fb5')+flag(236,246,'#3d6fb5')+
+    tent(760,176,52,32,'#b4564a')+tent(682,206,56,34,'#a14b40')+tent(604,246,60,36,'#b4564a')+flag(730,196,'#a3261e')+flag(566,240,'#a3261e');
+  $('armyL').innerHTML=army(-1,isr);
+  $('armyR').innerHTML=army(1,phil);
+
+  /* tent interior (scene 5) */
+  var tn='<rect x="-50" y="0" width="900" height="520" fill="url(#tentG)"/>';
+  for(var q3=0;q3<9;q3++)tn+='<polygon points="'+(q3*100-50)+',0 '+(q3*100)+',0 '+(q3*100+30)+',400 '+(q3*100-20)+',400" fill="rgba(255,255,255,'+(q3%2?.05:.02)+')"/>';
+  tn+='<rect x="392" y="0" width="16" height="400" fill="#6b4630"/><path d="M-50 372 L850 372 L910 520 L-110 520Z" fill="#5a1f2a"/><path d="M-30 392 L830 392 M-60 436 L860 436" stroke="#d9b44a" stroke-width="3" opacity=".7"/>';
+  [150,650].forEach(function(lx,i){tn+='<path d="M'+lx+' 0 L'+lx+' 112" stroke="#d9b44a" stroke-width="2"/><circle class="lamp" cx="'+lx+'" cy="130" r="64" fill="url(#glowG)" style="animation-delay:-'+i+'s"/><path d="M'+(lx-10)+' 116 L'+(lx+10)+' 116 L'+(lx+7)+' 138 L'+(lx-7)+' 138Z" fill="url(#gold)" stroke="#9a6d12"/>'});
+  tn+='<rect x="652" y="232" width="78" height="150" rx="8" fill="#6b4630" stroke="#d9b44a" stroke-width="3"/><rect x="640" y="372" width="102" height="20" rx="4" fill="#6b4630" stroke="#d9b44a" stroke-width="2"/><rect x="646" y="360" width="90" height="14" rx="5" fill="#9a2e3a"/>';
+  $('tent').innerHTML=tn;
+
+  /* ---------- scene 0: title ---------- */
+  $('g0').innerHTML=sheep(330,438,1.4,0)+sheep(205,446,1.1,1.1,true)+at(590,442,2.1,mix(DAV,{arms:'wave',sling:0,cls:'breath'}));
+  $('h0').innerHTML=
+    '<g style="animation:fadein 2.2s .5s both"><text class="cz" x="42" y="178" font-size="118" fill="url(#goldT)" stroke="rgba(25,12,45,.65)" stroke-width="9" stroke-linejoin="round" paint-order="stroke">DAVID</text></g>'+
+    '<path d="M44 198 H430" stroke="#e0b84a" stroke-width="2.5" style="animation:fadein 2s 1.3s both"/>'+
+    '<g style="animation:fadein 2s 1.6s both"><text class="cz" x="44" y="246" font-size="48" fill="#f6e7bd" stroke="rgba(25,12,45,.6)" stroke-width="7" paint-order="stroke" style="letter-spacing:.24em">Y GOLIAT</text></g>';
+
+  /* ---------- scene 1: the shepherd ---------- */
+  $('g1').innerHTML=sheep(130,442,1.25,0)+sheep(250,434,1.0,1.3)+sheep(560,424,.7,.4)+sheep(660,442,1.3,.9,true)+sheep(750,436,1.0,.2,true)+
+    at(450,442,1.8,mix(DAV,{staff:0,lyre:1,cls:'breath'}));
+  $('h1').innerHTML='<g transform="translate(0 -52)"><g class="popb" style="animation-delay:.6s"><text class="cz" x="450" y="244" text-anchor="middle" font-size="32" fill="url(#goldT)" stroke="rgba(25,12,45,.6)" stroke-width="6" paint-order="stroke">DAVID</text><path d="M400 256 H500" stroke="#e0b84a" stroke-width="2"/></g></g>';
+
+  /* ---------- scene 2: the valley of Elah ---------- */
+  $('g2').innerHTML=at(90,446,1.15,mix(isr(3),{cls:'breath'}))+at(170,448,1.0,mix(isr(2),{cls:'breath',d:-1}));
+  $('h2').innerHTML='<g style="animation:fadeLoc 8s .8s both"><text class="cz" x="44" y="150" font-size="50" fill="#f6e7bd" stroke="rgba(25,12,45,.7)" stroke-width="8" paint-order="stroke" style="letter-spacing:.12em">EL VALLE DE ELÁ</text><path d="M46 168 H470" stroke="#e0b84a" stroke-width="2.5"/></g>';
+
+  /* ---------- scene 3: Goliath ---------- */
+  $('g3').innerHTML=
+    at(60,448,1.15,mix(isr(0),{mood:'worry',cls:'shiv'}))+at(330,448,1.2,mix(isr(2),{mood:'worry',cls:'shiv',d:-.05}))+at(235,446,1.3,mix(isr(1),{mood:'worry',cls:'shiv',d:-.09}))+
+    at(140,442,1.6,mix(SAUL,{mood:'worry',cls:'shiv',d:-.03}))+
+    at(630,442,2.5,mix(GOL,{arms:'lup',cls:'breath'}));
+  $('h3').innerHTML='<g transform="translate(0 -52)"><g class="popb" style="animation-delay:2s"><text class="cz" x="440" y="214" text-anchor="middle" font-size="40" fill="url(#goldT)" stroke="rgba(25,12,45,.7)" stroke-width="7" paint-order="stroke">GOLIAT</text><path d="M370 226 H510" stroke="#e0b84a" stroke-width="2"/><text x="440" y="252" text-anchor="middle" font-size="24" fill="#f6e7bd" stroke="rgba(25,12,45,.7)" stroke-width="5" paint-order="stroke">casi 3 metros de altura</text></g></g>';
+
+  /* ---------- scene 4: David reaches the camp ---------- */
+  $('g4').innerHTML=
+    at(480,372,.72,mix(GOL,{cls:'breath'}))+
+    at(520,446,1.35,mix(isr(0),{mood:'open',cls:'breath'}))+at(610,448,1.3,mix(isr(2),{mood:'worry',cls:'breath',d:-.4}))+
+    '<g class="walkin">'+at(220,442,1.55,mix(DAV,{staff:0,sling:0,basket:1,arms:'wave',cd:6,walk:4,cls:'bob8'}))+'</g>';
+  $('h4').innerHTML='<g transform="translate(0 -52)"><g class="popb" style="animation-delay:3.4s"><text class="cz" x="200" y="236" text-anchor="middle" font-size="32" fill="url(#goldT)" stroke="rgba(25,12,45,.6)" stroke-width="6" paint-order="stroke">DAVID</text><path d="M150 248 H250" stroke="#e0b84a" stroke-width="2"/></g></g>';
+
+  /* ---------- scene 5: before King Saul ---------- */
+  $('g5').innerHTML=
+    at(560,442,1.9,mix(SAUL,{mood:'open',cls:'breath'}))+
+    '<g class="m5a">'+at(200,442,1.45,mix(DAV,{staff:0,armor:1,helmet:1,helmetBig:1,mood:'worry',cls:'wobble'}))+'</g>'+
+    '<g class="m5b"><g class="popb" style="animation-delay:0s">'+
+      '<g transform="translate(0 -10) scale(1.5)" style="transform-origin:110px 430px"><ellipse cx="110" cy="432" rx="30" ry="9" fill="url(#bronze)" stroke="#6b4415"/><path d="M92 430 Q110 400 128 430Z" fill="url(#bronze)" stroke="#6b4415"/><path d="M118 422 Q132 420 140 428 Q130 432 120 430Z" fill="#b3261e"/></g></g>'+
+      at(250,442,1.45,mix(DAV,{staff:1,mood:'happy',cls:'breath'}))+'</g>';
+
+  /* ---------- scene 6: five smooth stones ---------- */
+  $('g6').innerHTML=at(250,444,2.0,mix(DAV,{pouch:1,cls:'breath'}));
+  var sp='';[[470,408],[545,412],[620,406],[690,413],[755,410]].forEach(function(p,i){
+    sp+='<polygon class="twinkle" points="'+star(p[0],p[1],4,9,3)+'" fill="#fff6cf" style="animation-delay:'+(i*.3)+'s"/><ellipse cx="'+p[0]+'" cy="'+(p[1]+7)+'" rx="7" ry="4.4" fill="#cfc4ae" stroke="#7a6e58"/>';
+  });
+  $('g6').innerHTML+=sp;
+  var st='<g transform="translate(0 70)"><rect x="262" y="0" width="276" height="66" rx="10" fill="rgba(10,8,24,.62)" stroke="#e0b84a" stroke-width="2"/><text class="cz" x="400" y="22" text-anchor="middle" font-size="16" fill="#f6e7bd">CINCO PIEDRAS</text><g id="stones">';
+  for(var q4=0;q4<5;q4++)st+='<ellipse cx="'+(310+q4*45)+'" cy="44" rx="15" ry="11" fill="rgba(30,25,40,.55)" stroke="#e0b84a" stroke-width="1.6"/>';
+  st+='</g></g>';
+  $('h6').innerHTML=st;
+  var stoneEls=$('stones').children;
+
+  /* ---------- scene 7: face to face ---------- */
+  $('g7').innerHTML=
+    at(640,442,2.6,mix(GOL,{arms:'lup',cls:'breath'}))+
+    '<g style="animation:dRun 3s 15s ease-in both">'+at(190,442,1.25,mix(DAV,{staff:0,walk:true,d:15,cls:'bob'}))+'</g>';
+
+  /* ---------- scene 8: the sling ---------- */
+  $('g8').innerHTML=
+    at(200,442,1.6,mix(DAV,{staff:0,sling:'swing',arms:'wave'}))+
+    '<g style="animation:gStep 6.75s linear both"><g style="transform-origin:640px 442px;animation:topple 1.4s 6.75s ease-in both">'+at(640,442,2.6,mix(GOL,{arms:'lup'}))+'</g></g>'+
+    '<g class="stone"><circle cx="235" cy="254" r="4.5" fill="#d9ceb6" stroke="#6a5d48" stroke-width="1.2"/></g>'+
+    '<g class="impact"><g class="popc" style="animation:crashA .7s both"><polygon points="'+star(578,200,8,26,10)+'" fill="#fff6cf" stroke="#ffd23f" stroke-width="2"/></g></g>';
+  var dp='<g class="dust8">';for(var q5=0;q5<12;q5++)dp+='<circle class="puff" cx="'+(320+q5*24)+'" cy="'+(430+R0()*10).toFixed(0)+'" r="'+(18+R0()*12).toFixed(0)+'" fill="#e8dcc0" style="animation-delay:'+(R0()*.8).toFixed(2)+'s"/>';
+  $('dust8').innerHTML=dp+'</g>';
+
+  /* ---------- scene 9: victory ---------- */
+  var fl9='';for(var q6=0;q6<8;q6++)fl9+=at(560+q6*34,356+(q6%2)*10,.8,mix(phil(q6),{walk:true,d:-(q6*.1),cls:'bob'}));
+  $('g9').innerHTML=
+    '<g style="animation:flee 5s .4s ease-in both">'+fl9+'</g>'+
+    '<g transform="rotate(-87 580 442)">'+at(580,442,2.6,mix(GOL,{arms:'down',mood:'worry'}))+'</g>'+
+    at(80,446,1.25,mix(isr(0),{arms:'cheer',cls:'hop',d:-.1}))+at(150,448,1.3,mix(isr(2),{arms:'cheer',cls:'hop',d:-.3}))+at(380,448,1.25,mix(isr(1),{arms:'cheer',cls:'hop',d:-.5}))+
+    at(250,442,1.6,mix(DAV,{staff:0,arms:'cheer',mood:'happy'}));
+
+  /* ---------- scene 10: finale ---------- */
+  $('g10').innerHTML=
+    sheep(150,444,1.3,0)+sheep(260,450,1.0,.9,true)+sheep(570,448,1.2,.5)+sheep(670,442,1.0,1.4,true)+
+    at(90,446,1.1,mix(isr(1),{arms:'cheer',cls:'hop',d:-.2}))+at(740,446,1.1,mix(isr(3),{arms:'cheer',cls:'hop',d:-.5}))+
+    at(400,444,1.6,mix(DAV,{arms:'down',cls:'breath'}));
+  var fh='';[[210,170,0],[590,180,.8],[320,130,1.6],[490,140,.4],[400,120,1.2]].forEach(function(h){
+    fh+='<polygon class="twinkle" points="'+star(h[0],h[1],4,9,3)+'" fill="#fff6cf" style="animation-delay:'+h[2]+'s"/>';
+  });
+  $('h10').innerHTML='<g class="popc" style="animation-delay:1.6s;transform-origin:400px 190px"><text class="cz" x="400" y="204" text-anchor="middle" font-size="96" fill="url(#goldT)" stroke="rgba(25,12,45,.7)" stroke-width="9" stroke-linejoin="round" paint-order="stroke" style="letter-spacing:.16em">FIN</text></g>'+fh;
+
+  /* ---------- player engine ---------- */
+  var stage=$('stage'),capText=$('capText'),playBtn=$('play'),segsEl=$('segs'),timeEl=$('time'),endcard=$('endcard');
+  var groups=Array.prototype.map.call(document.querySelectorAll('.sg'),function(el){return {el:el,set:el.dataset.s.split(' ').map(Number)}});
+  var idx=0,t=0,vt=0,playing=true,capKey='',lastTs=null,manual=false,fades=[],seen=new WeakSet();
+
+  var ICON_PAUSE='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="5" height="16" rx="1.5"/><rect x="14" y="4" width="5" height="16" rx="1.5"/></svg>';
+  var ICON_PLAY='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12-7.5a1 1 0 0 0 0-1.72l-12-7.5A1 1 0 0 0 7 4.5z"/></svg>';
+
+  var segs=S.map(function(s,i){
+    var b=document.createElement('button');b.type='button';b.setAttribute('aria-label','Escena '+(i+1)+': '+s.n);b.title=s.n;b.innerHTML='<i></i>';
+    b.addEventListener('click',function(){seek(i)});segsEl.appendChild(b);return b;
+  });
+
+  function fmt(x){x=Math.floor(x);return Math.floor(x/60)+':'+String(x%60).padStart(2,'0')}
+
+  function restartAnims(el){
+    el.getAnimations({subtree:true}).forEach(function(a){
+      a.cancel();a.play();
+      if(manual){a.pause();a.currentTime=0;seen.add(a)}
+    });
+  }
+  function showScene(i,hard){
+    purge=true;
+    stage.dataset.scene=i;stage.dataset.beat='0';
+    if(hard){fades=[];groups.forEach(function(g){g.el.classList.remove('on','fading')});void stage.getBoundingClientRect()}
+    groups.forEach(function(g){
+      var want=g.set.indexOf(i)>-1,isOn=g.el.classList.contains('on');
+      if(want&&!isOn){g.el.classList.remove('fading');g.el.classList.add('on');restartAnims(g.el)}
+      else if(!want&&isOn){g.el.classList.remove('on');g.el.classList.add('fading');fades=fades.filter(function(f){return f.el!==g.el});fades.push({el:g.el,at:vt+.7})}
+    });
+  }
+  function setPaused(p){
+    playing=!p;stage.classList.toggle('paused',p);
+    playBtn.innerHTML=p?ICON_PLAY:ICON_PAUSE;playBtn.setAttribute('aria-label',p?'Reproducir':'Pausa');
+  }
+  function seek(i){
+    idx=Math.max(0,Math.min(S.length-1,i));t=0;capKey='';endcard.hidden=true;
+    stage.classList.toggle('settled',idx>=9);
+    showScene(idx,true);setPaused(false);update();
+  }
+  var beatNow=0;
+  function tick(){
+    if(idx===6){for(var i=0;i<5;i++)stoneEls[i].setAttribute('fill',i<beatNow?'#d9ceb6':'rgba(30,25,40,.55)')}
+  }
+  function update(){
+    var sc=S[idx],ci=0;
+    sc.c.forEach(function(c,i){if(t>=c[0])ci=i});
+    var key=idx+'-'+ci;
+    if(key!==capKey){capKey=key;capText.classList.remove('in');void capText.offsetWidth;capText.textContent=sc.c[ci][1];capText.classList.add('in')}
+    var bt=0;(sc.b||[]).forEach(function(x){if(t>=x)bt++});
+    if(String(bt)!==stage.dataset.beat)stage.dataset.beat=String(bt);
+    beatNow=bt;
+    tick();
+    var done=0;
+    segs.forEach(function(el,i){
+      var p=i<idx?1:(i===idx?Math.min(1,t/sc.d):0);
+      el.style.setProperty('--p',p);
+      if(i<idx)done+=S[i].d;
+    });
+    timeEl.textContent=fmt(done+t)+' / '+fmt(TOTAL);
+  }
+  function advance(dt){
+    t+=dt;vt+=dt;
+    fades=fades.filter(function(f){if(vt>=f.at){f.el.classList.remove('fading');return false}return true});
+    var sc=S[idx];
+    if(t>=sc.d){
+      if(idx<S.length-1){idx++;t=0;showScene(idx,false)}
+      else{t=sc.d;setPaused(true);endcard.hidden=false}
+    }
+    update();
+  }
+  function frame(ts){
+    if(lastTs===null)lastTs=ts;
+    var dt=Math.min(.1,(ts-lastTs)/1000);lastTs=ts;
+    if(!manual&&playing)advance(dt);
+    requestAnimationFrame(frame);
+  }
+  // frame-exact stepping used when capturing the MP4: every CSS animation and transition is driven by hand
+  var purge=false;
+  function freeze(dt){
+    document.getAnimations().forEach(function(a){
+      if(purge&&a.animationName&&a.effect&&a.effect.target){
+        var nm=getComputedStyle(a.effect.target).animationName.split(',').map(function(x){return x.trim()});
+        if(nm.indexOf(a.animationName)<0){a.cancel();return}
+      }
+      if(!seen.has(a)){seen.add(a);a.pause();a.currentTime=0}
+      else a.currentTime=(+a.currentTime||0)+dt*1000;
+    });
+    purge=false;
+  }
+
+  playBtn.addEventListener('click',function(){
+    if(!endcard.hidden){seek(0);return}
+    setPaused(playing);
+  });
+  $('replay').addEventListener('click',function(){seek(0)});
+  document.addEventListener('keydown',function(e){
+    if(e.target&&e.target.tagName==='BUTTON'&&(e.key===' '||e.key==='Enter'))return;
+    if(e.key===' '||e.key==='k'){e.preventDefault();if(!endcard.hidden)seek(0);else setPaused(playing)}
+    else if(e.key==='ArrowRight')seek(idx+1);
+    else if(e.key==='ArrowLeft')seek(idx-1);
+  });
+
+  window.__story={
+    seek:seek,
+    pause:function(){setPaused(true)},
+    manual:function(){manual=true;seek(0);freeze(0)},
+    step:function(dt){advance(dt);freeze(dt)},
+    state:function(){return {idx:idx,t:t}}
+  };
+  showScene(0,true);setPaused(false);update();
+  requestAnimationFrame(frame);
+})();
+</script>
